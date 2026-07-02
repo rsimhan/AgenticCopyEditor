@@ -60,7 +60,13 @@ no pipeline refactor. See [`docs/AGENT-ARCHITECTURE.md`](docs/AGENT-ARCHITECTURE
   false-alarms on rounding (25% vs 24.8%); B.1b fuzzy cross-location agreement → `author_query` at
   `base_inference`; B.2 consistency normalizers (table range-style, decimal-place). 106 unit + 29
   integration tests green (incl. the abstract-vs-table E2E: mismatch → 1 flag, consistent → 0).
-- Milestones 4–7 — merge & arbitration → MCP server → flywheel + curation → thin LLM tier.
+- **Milestone 4 — Merge & arbitration** ✅ pure interval-splitting engine (Phase E): precedence
+  `deterministic > verified_memory > base_inference`, then confidence, then earlier `created_at`;
+  higher tier owns a contested sub-span while the lower tier's non-overlapping remainder survives
+  (split), full coverage → `superseded`, `author_query` passes through. DB layer runs under
+  `pg_advisory_xact_lock(chunk_id)`; concurrency test fires two parallel merges and asserts no
+  lost/duplicated spans. 119 unit + 32 integration tests green.
+- Milestones 5–7 — MCP server → flywheel + curation → thin LLM tier.
 
 ## Layout
 

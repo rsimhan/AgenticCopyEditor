@@ -16,11 +16,16 @@ export function getPool(): pg.Pool {
   if (pool) return pool;
   const cfg = loadConfig();
   pool = new pg.Pool({ connectionString: cfg.DATABASE_URL });
-  // Register the pgvector type parser/serializer on every new connection.
-  pool.on('connect', (client) => {
-    void pgvector.registerType(client);
-  });
   return pool;
+}
+
+/**
+ * Register the pgvector type parser on a client so `vector` columns round-trip as number[].
+ * Await this on a checked-out client before reading vectors (used by the flywheel, M6). Writes via
+ * `pgvector.toSql(...)` do not require it.
+ */
+export async function registerVectorTypes(client: PoolClient): Promise<void> {
+  await pgvector.registerType(client);
 }
 
 /** Run `fn` inside a transaction, rolling back on error. */

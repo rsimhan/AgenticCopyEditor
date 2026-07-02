@@ -18,7 +18,6 @@ describe('schema smoke test', () => {
   beforeAll(async () => {
     const cfg = loadConfig();
     pool = new pg.Pool({ connectionString: cfg.DATABASE_URL });
-    pool.on('connect', (c) => void pgvector.registerType(c));
     client = await pool.connect();
     await client.query('BEGIN');
   });
