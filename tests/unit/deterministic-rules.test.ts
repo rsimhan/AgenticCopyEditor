@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest';
 import type { RuleHandler, Resolution } from '../../src/rules/registry.js';
 import {
   thousandsSeparator,
+  thousandsStrip,
   wholeNumberPercent,
   leadingZero,
   noLeadingZeroStats,
   currencyUsFormat,
 } from '../../src/rules/handlers/numbers.js';
+import { time12Hour } from '../../src/rules/handlers/time.js';
 import { percentNoSpace, percentRepeatRange } from '../../src/rules/handlers/percent.js';
 import { noSpaceOperators, gteLteSymbols } from '../../src/rules/handlers/operators.js';
 import { temperatureCelsiusSpacing } from '../../src/rules/handlers/units.js';
@@ -53,10 +55,36 @@ describe('thousands_separator', () => {
     ['6500 mg', null], // <= 9999 unchanged
     ['250000', '250,000'],
     ['1030023', '1,030,023'],
-    ['323200333', '323,200,333'],
     ['12345.678 mm', null], // decimal, left alone
     ['in 2004', null], // 4 digits
     ['id A12345', null], // part of an identifier
+    // UAT guards: IDs/DOIs/dates must not be comma-ized
+    ['doi.org/10.2196/95374', null], // DOI number (adjacent to '/')
+    ['Medline: 39904722', null], // 8-digit ID (> 7 digits)
+    ['150320261105202628052026', null], // 24-digit concatenated metadata
+  ]);
+  it('is not auto-applicable (context-sensitive; can be an ID/date)', () => {
+    expect(thousandsSeparator.isAutoApplicable).toBe(false);
+  });
+});
+
+describe('thousands_strip', () => {
+  table(thousandsStrip, [
+    ['1,076', '1076'],
+    ['2,329 patients', '2329'],
+    ['36,127', null], // > 9999 keeps its comma
+    ['1,030,023', null], // > 9999 keeps its commas
+  ]);
+});
+
+describe('time_12hour', () => {
+  table(time12Hour, [
+    ['14:00', '2:00 PM'],
+    ['23:00', '11:00 PM'],
+    ['00:00', 'midnight'],
+    ['12:00', 'noon'],
+    ['00:30', '12:30 AM'],
+    ['09:30', null], // ambiguous (no AM/PM); hour 1-11 left alone
   ]);
 });
 

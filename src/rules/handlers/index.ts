@@ -6,6 +6,7 @@ import type { RuleHandler } from '../registry.js';
 import { RuleRegistry } from '../registry.js';
 import {
   thousandsSeparator,
+  thousandsStrip,
   wholeNumberPercent,
   leadingZero,
   noLeadingZeroStats,
@@ -14,6 +15,7 @@ import {
 import { percentNoSpace, percentRepeatRange } from './percent.js';
 import { noSpaceOperators, gteLteSymbols } from './operators.js';
 import { temperatureCelsiusSpacing } from './units.js';
+import { time12Hour } from './time.js';
 import {
   trademarkSymbolRemoval,
   latinAbbrevComma,
@@ -25,6 +27,7 @@ import {
 /** All deterministic span-scoped handlers implemented in Milestone 2. */
 export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   thousandsSeparator,
+  thousandsStrip,
   wholeNumberPercent,
   leadingZero,
   noLeadingZeroStats,
@@ -34,6 +37,7 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   noSpaceOperators,
   gteLteSymbols,
   temperatureCelsiusSpacing,
+  time12Hour,
   trademarkSymbolRemoval,
   latinAbbrevComma,
   ellipsisThreePeriods,

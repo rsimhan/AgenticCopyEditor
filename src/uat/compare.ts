@@ -47,6 +47,8 @@ const RULE_TO_PATTERN: Record<string, string> = {
   percent_repeat_range: 'percent_range',
   whole_number_percent: 'whole_number_percent',
   thousands_separator: 'thousands_add',
+  thousands_strip: 'thousands_strip',
+  time_12hour: 'time_12hour',
   leading_zero: 'leading_zero',
   no_leading_zero_stats: 'leading_zero',
   no_space_operators: 'operator_spacing',

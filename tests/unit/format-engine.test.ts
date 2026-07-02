@@ -13,7 +13,7 @@ describe('format engine (Phase C)', () => {
     expect(byRule.get('percent_no_space')?.draft.proposedText).toBe('18%');
     expect(byRule.get('percent_no_space')?.autoApply).toBe(true);
     expect(byRule.get('thousands_separator')?.draft.proposedText).toBe('36,127');
-    expect(byRule.get('thousands_separator')?.autoApply).toBe(true);
+    expect(byRule.get('thousands_separator')?.autoApply).toBe(false); // demoted after UAT (ID risk)
     expect(byRule.get('term_toward')?.draft.proposedText).toBe('toward');
 
     // no_space_operators fires (P = .03) but must NOT auto-apply

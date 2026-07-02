@@ -12,18 +12,41 @@ function groupThousands(intDigits: string): string {
 
 /**
  * thousands_separator — integers > 9999 take grouping commas (36127 → 36,127); 6500 unchanged.
- * Matches standalone runs of 5+ digits not adjacent to a word char, dot, or comma (so decimals
- * like 12345.6 and identifiers are left alone). Auto-applicable.
+ *
+ * NOT auto-applicable (UAT lesson): the number alone can't distinguish a reported quantity from an
+ * identifier/DOI/date/reference (e.g. a manuscript DOI `…/95374`, an 8-digit Medline ID, or 24-digit
+ * submission-date metadata). So it posts pending, and guards drop the obvious non-quantities:
+ *   - the `:` and `/` exclusions keep it out of URLs/DOIs/ratios/times;
+ *   - runs longer than 7 digits are almost always IDs/dates/garbage, not reported values.
  */
 export const thousandsSeparator: RuleHandler = {
   ruleId: 'thousands_separator',
   scope: 'span',
   isDeterministic: true,
-  isAutoApplicable: true,
-  detect: (ctx) => regexCandidates(ctx.text, /(?<![\w.,])\d{5,}(?![\w.,])/),
+  isAutoApplicable: false,
+  detect: (ctx) => regexCandidates(ctx.text, /(?<![\w.,:/])\d{5,}(?![\w.,:/])/),
   resolve: (c): Resolution => {
+    if (c.matched.length > 7) return { kind: 'noop' }; // ID / date / concatenated metadata
     const proposed = groupThousands(c.matched);
     return proposed === c.matched ? { kind: 'noop' } : { kind: 'edit', proposed };
+  },
+};
+
+/**
+ * thousands_strip — remove grouping commas from integers ≤ 9999 (1,076 → 1076); JMIR reserves commas
+ * for values > 9999. The mirror of thousands_separator. Deterministic; posts pending (conservative
+ * until proven on real data).
+ */
+export const thousandsStrip: RuleHandler = {
+  ruleId: 'thousands_strip',
+  scope: 'span',
+  isDeterministic: true,
+  isAutoApplicable: false,
+  detect: (ctx) => regexCandidates(ctx.text, /(?<![\w.])\d{1,3}(?:,\d{3})+(?![\w.])/),
+  resolve: (c): Resolution => {
+    const digits = c.matched.replace(/,/g, '');
+    if (Number(digits) > 9999) return { kind: 'noop' }; // >9999 correctly keeps commas
+    return { kind: 'edit', proposed: digits };
   },
 };
 
