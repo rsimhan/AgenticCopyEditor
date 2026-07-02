@@ -34,7 +34,7 @@ export async function mergeChunkWithClient(
   await client.query('SELECT pg_advisory_xact_lock($1)', [chunkId]);
 
   const { rows } = await client.query(
-    `SELECT suggestion_id, char_start_index, char_end_index, origin_tier, kind, confidence,
+    `SELECT suggestion_id, cell_id, char_start_index, char_end_index, origin_tier, kind, confidence,
             (EXTRACT(EPOCH FROM created_at) * 1000)::bigint AS created_ms, original_text
        FROM editing_suggestions
       WHERE chunk_id = $1 AND status IN ('pending', 'auto_applied')
@@ -43,9 +43,14 @@ export async function mergeChunkWithClient(
   );
 
   const originals = new Map<number, { start: number; text: string }>();
-  const claims: MergeClaim[] = rows.map((r) => {
+  // Spans are only comparable within one text unit. A table chunk holds many cells, each its own
+  // coordinate space, so partition claims by cell_id (NULL = the prose chunk) and merge each group
+  // independently. Without this, cell-relative spans from different cells would collide.
+  const byUnit = new Map<number, MergeClaim[]>();
+  for (const r of rows) {
     originals.set(r.suggestion_id, { start: r.char_start_index, text: r.original_text });
-    return {
+    const unit = r.cell_id ?? -1;
+    const claim: MergeClaim = {
       id: r.suggestion_id,
       span: { start: r.char_start_index, end: r.char_end_index },
       tier: r.origin_tier as OriginTier,
@@ -53,10 +58,12 @@ export async function mergeChunkWithClient(
       ...(r.confidence !== null ? { confidence: Number(r.confidence) } : {}),
       createdAt: Number(r.created_ms),
     };
-  });
+    (byUnit.get(unit) ?? byUnit.set(unit, []).get(unit)!).push(claim);
+  }
 
   const summary: MergeSummary = { kept: 0, superseded: 0, split: 0, passthrough: 0 };
-  for (const outcome of mergeChunk(claims)) {
+  const outcomes = [...byUnit.values()].flatMap((claims) => mergeChunk(claims));
+  for (const outcome of outcomes) {
     if (outcome.decision === 'kept') summary.kept++;
     else if (outcome.decision === 'passthrough') summary.passthrough++;
     else if (outcome.decision === 'superseded') {

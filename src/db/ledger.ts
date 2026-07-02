@@ -35,8 +35,12 @@ export interface RecordActionInput {
  * Repository over `editing_suggestions` + `action_audit_log`. Implemented in Milestone 5.
  */
 export interface LedgerRepo {
-  /** Insert a suggestion (idempotent on the de-dupe key). Validates span bounds against text. */
-  postSuggestion(draft: SuggestionDraft): Promise<PersistedSuggestion>;
+  /**
+   * Insert a suggestion (idempotent on the de-dupe key). Validates codepoint span bounds against
+   * the target chunk/cell text and rejects out-of-bounds spans. `status` defaults to 'pending';
+   * pass 'auto_applied' for context-free deterministic fixes (also writes an auto_applied audit row).
+   */
+  postSuggestion(draft: SuggestionDraft, status?: SuggestionStatus): Promise<PersistedSuggestion>;
 
   /** All pending/auto_applied suggestions for a chunk, ordered by start — input to the merge. */
   pendingForChunk(chunkId: number): Promise<PersistedSuggestion[]>;

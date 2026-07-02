@@ -25,7 +25,10 @@ cp .env.example .env        # fill in ANTHROPIC_API_KEY / GEMINI_API_KEY when ne
 pnpm db:up                  # start Postgres 16 + pgvector (Docker)
 pnpm migrate:up             # apply migrations (Milestone 1+)
 pnpm test                   # run the deterministic unit suite
+pnpm test:integration       # integration tests (needs the DB up + migrated)
 pnpm typecheck              # strict tsc, no emit
+
+pnpm ace edit <file.md>     # ingest a manuscript, run the pipeline, print a review report
 ```
 
 ## Architecture in one paragraph
@@ -66,7 +69,14 @@ no pipeline refactor. See [`docs/AGENT-ARCHITECTURE.md`](docs/AGENT-ARCHITECTURE
   (split), full coverage → `superseded`, `author_query` passes through. DB layer runs under
   `pg_advisory_xact_lock(chunk_id)`; concurrency test fires two parallel merges and asserts no
   lost/duplicated spans. 119 unit + 32 integration tests green.
-- Milestones 5–7 — MCP server → flywheel + curation → thin LLM tier.
+- **Milestone 5 — Service layer + CLI runner** ✅ transport-agnostic operations (`ingestManuscript`,
+  `runFullPipeline`, `recordEditorAction`) over the `LedgerRepo` (bounds-checked, idempotent
+  `post_suggestion`; atomic status+audit `record_editor_action`). Phase A markdown segmenter
+  (sections/chunks + table geometry). The **`pnpm ace edit <file.md>`** CLI ingests → runs the whole
+  pipeline → prints a review report (auto-applied vs pending vs author-query). 123 unit + 39
+  integration green. This is the Phase-1 (Test) surface; MCP/REST are later adapters (see
+  `docs/AGENT-ARCHITECTURE.md` §14).
+- Milestones 6–7 — flywheel + curation → thin LLM tier.
 
 ## Layout
 
