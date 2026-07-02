@@ -45,7 +45,10 @@ no pipeline refactor. See [`docs/AGENT-ARCHITECTURE.md`](docs/AGENT-ARCHITECTURE
   (blackboard, rule registry, agent contract + ToolBelt, deterministic orchestrator, provider
   abstraction, MCP boundary) as typed interfaces with the workflow phases stubbed; codepoint-offset
   utility (Principle 8); Vitest suite green.
-- **Milestone 1 — Schema** ⏳ migrations from SPEC §4, append-only trigger, seeds, smoke test.
+- **Milestone 1 — Schema** ✅ 6 ordered up/down migrations from SPEC §4 (all 12 tables + table
+  geometry + precision policy), append-only trigger on `action_audit_log`, seeded `style_rules`
+  (24), `stat_precision_policy` (9), editors. Integration smoke test inserts one row per table and
+  exercises the `kind`/`proposed_text` and append-only invariants; full down→up cycle verified.
 - Milestones 2–7 — deterministic engine → extraction/reconciliation/consistency → merge → MCP →
   flywheel → thin LLM tier.
 
