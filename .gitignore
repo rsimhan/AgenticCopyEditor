@@ -21,3 +21,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Real UAT manuscripts — confidential author content; keep local, never push.
+# (README is force-tracked to document the structure.)
+tests/uat/*
+!tests/uat/README.md

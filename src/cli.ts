@@ -4,8 +4,8 @@
  * Ingests, runs the full pipeline, and prints a review report. A thin adapter over the service
  * layer (§5.7) — no business logic lives here.
  */
-import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { loadManuscriptSource } from './ingest/load.js';
 import { ingestManuscript } from './service/ingest.js';
 import { runFullPipeline } from './service/run.js';
 import { getManuscriptReport, formatReport } from './service/report.js';
@@ -16,12 +16,12 @@ async function main(): Promise<void> {
   const cmd = args[0] === 'edit' ? args.slice(1) : args;
   const file = cmd[0];
   if (!file) {
-    console.error('Usage: pnpm ace edit <file.md>');
+    console.error('Usage: pnpm ace edit <file.docx|file.md>');
     process.exitCode = 1;
     return;
   }
 
-  const markdown = readFileSync(file, 'utf8');
+  const markdown = await loadManuscriptSource(file);
   const { manuscriptId, chunkCount, tableCount } = await ingestManuscript({
     title: basename(file),
     rawContentMarkdown: markdown,
