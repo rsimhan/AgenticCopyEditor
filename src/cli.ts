@@ -13,10 +13,24 @@ import { closePool } from './db/pool.js';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+
+  if (args[0] === 'uat') {
+    const [, input, edited] = args;
+    if (!input || !edited) {
+      console.error('Usage: pnpm ace uat <input.docx> <edited.docx>');
+      process.exitCode = 1;
+      return;
+    }
+    const { runComparison, formatComparison } = await import('./uat/compare.js');
+    console.error('Extracting gold edits, running pipeline, comparing…\n');
+    console.log(formatComparison(await runComparison(input, edited)));
+    return;
+  }
+
   const cmd = args[0] === 'edit' ? args.slice(1) : args;
   const file = cmd[0];
   if (!file) {
-    console.error('Usage: pnpm ace edit <file.docx|file.md>');
+    console.error('Usage: pnpm ace edit <file.docx|file.md>  |  pnpm ace uat <input.docx> <edited.docx>');
     process.exitCode = 1;
     return;
   }
