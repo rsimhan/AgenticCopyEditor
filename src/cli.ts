@@ -30,7 +30,9 @@ async function main(): Promise<void> {
   const cmd = args[0] === 'edit' ? args.slice(1) : args;
   const file = cmd[0];
   if (!file) {
-    console.error('Usage: pnpm ace edit <file.docx|file.md>  |  pnpm ace uat <input.docx> <edited.docx>');
+    console.error(
+      'Usage: pnpm ace edit <file.docx|file.md>  |  pnpm ace uat <input.docx> <edited.docx>',
+    );
     process.exitCode = 1;
     return;
   }

@@ -23,7 +23,7 @@ export function patternOfGold(e: TrackedEdit): string {
   if (/\bi\.e\.|\be\.g\./i.test(d)) return 'latin_abbrev';
   if (/towards\b/i.test(d)) return 'term_toward';
   if (/e-?health|m-?health/i.test(t)) return 'term_xhealth';
-  if (/^\d{1,2}:\d{2}$/.test(d)) return 'time_12hour';
+  if (/\d{1,2}:\d{2}/.test(d) || /\b(AM|PM|noon|midnight)\b/.test(i)) return 'time_12hour';
   if (NUMBER_WORD.test(d) && /^\d+$/.test(i)) return 'numeral_conversion';
   if (/,/.test(d) && !/,/.test(i) && /^\d+$/.test(i.replace(/,/g, ''))) return 'thousands_strip';
   if (!/,/.test(d) && /,/.test(i) && /^\d+$/.test(d)) return 'thousands_add';
@@ -85,15 +85,23 @@ function group<T>(items: T[], key: (t: T) => string): Map<string, T[]> {
   return m;
 }
 
-export async function runComparison(inputPath: string, editedPath: string): Promise<ComparisonResult> {
+export async function runComparison(
+  inputPath: string,
+  editedPath: string,
+): Promise<ComparisonResult> {
   const gold = classifyEdits(parseTrackedChanges(await readDocumentXml(editedPath))).inScope;
   const goldByPattern = group(gold, patternOfGold);
 
   const md = await loadManuscriptSource(inputPath);
   const { manuscriptId } = await ingestManuscript({ title: inputPath, rawContentMarkdown: md });
   await runFullPipeline(manuscriptId);
-  const ours = (await getManuscriptReport(manuscriptId)).items.filter((i) => i.status !== 'superseded');
-  const ourByPattern = group(ours, (it: ReportItem) => RULE_TO_PATTERN[it.ruleId] ?? `?${it.ruleId}`);
+  const ours = (await getManuscriptReport(manuscriptId)).items.filter(
+    (i) => i.status !== 'superseded',
+  );
+  const ourByPattern = group(
+    ours,
+    (it: ReportItem) => RULE_TO_PATTERN[it.ruleId] ?? `?${it.ruleId}`,
+  );
 
   const patterns = new Set([...goldByPattern.keys(), ...ourByPattern.keys()]);
   const rows: PatternRow[] = [];
@@ -106,14 +114,26 @@ export async function runComparison(inputPath: string, editedPath: string): Prom
     else if (g > 0 && haveRule) verdict = 'partial';
     else if (g > 0) verdict = 'gap';
     else verdict = 'ours_only';
-    rows.push({ pattern: p, gold: g, ours: o, haveRule, verdict, goldExamples: (goldByPattern.get(p) ?? []).slice(0, 3) });
+    rows.push({
+      pattern: p,
+      gold: g,
+      ours: o,
+      haveRule,
+      verdict,
+      goldExamples: (goldByPattern.get(p) ?? []).slice(0, 3),
+    });
   }
   rows.sort((a, b) => b.gold - a.gold || b.ours - a.ours);
   return { goldTotal: gold.length, ourTotal: ours.length, rows };
 }
 
 export function formatComparison(r: ComparisonResult): string {
-  const V: Record<Verdict, string> = { covered: '✅ covered', partial: '◐ partial', gap: '✗ GAP', ours_only: '● ours-only' };
+  const V: Record<Verdict, string> = {
+    covered: '✅ covered',
+    partial: '◐ partial',
+    gap: '✗ GAP',
+    ours_only: '● ours-only',
+  };
   const lines: string[] = [];
   lines.push(`Gold in-scope edits: ${r.goldTotal}   ·   Our suggestions: ${r.ourTotal}\n`);
   lines.push('pattern                     gold  ours   verdict');
@@ -128,9 +148,13 @@ export function formatComparison(r: ComparisonResult): string {
   if (gaps.length) {
     lines.push('\n--- gaps & partials (examples from the real edit) ---');
     for (const row of gaps) {
-      lines.push(`\n[${row.verdict === 'gap' ? 'GAP' : 'PARTIAL'}] ${row.pattern}  (gold ${row.gold}, ours ${row.ours})`);
+      lines.push(
+        `\n[${row.verdict === 'gap' ? 'GAP' : 'PARTIAL'}] ${row.pattern}  (gold ${row.gold}, ours ${row.ours})`,
+      );
       for (const e of row.goldExamples) {
-        lines.push(`    "${(e.deleted ?? '').slice(0, 45)}" → "${(e.inserted ?? '').slice(0, 45)}"`);
+        lines.push(
+          `    "${(e.deleted ?? '').slice(0, 45)}" → "${(e.inserted ?? '').slice(0, 45)}"`,
+        );
       }
     }
   }

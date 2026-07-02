@@ -6,16 +6,31 @@ describe('tracked-changes extraction', () => {
     const xml =
       '<w:del><w:r><w:delText xml:space="preserve">25 %</w:delText></w:r></w:del>' +
       '<w:ins><w:r><w:t>25%</w:t></w:r></w:ins>';
-    expect(parseTrackedChanges(xml)).toEqual([{ kind: 'replace', deleted: '25 %', inserted: '25%' }]);
+    expect(parseTrackedChanges(xml)).toEqual([
+      { kind: 'replace', deleted: '25 %', inserted: '25%' },
+    ]);
   });
 
-  it('reads standalone insertions and deletions', () => {
-    const xml =
-      '<w:ins><w:r><w:t>new</w:t></w:r></w:ins>' +
-      '<w:del><w:r><w:delText>old</w:delText></w:r></w:del>';
-    expect(parseTrackedChanges(xml)).toEqual([
-      { kind: 'insert', inserted: 'new' },
-      { kind: 'delete', deleted: 'old' },
+  it('merges contiguous fragmented changes; an unchanged run splits edits', () => {
+    // "14:00" → "2:00 PM" fragmented into adjacent runs (no unchanged text between) → one replace.
+    const contiguous =
+      '<w:del><w:r><w:delText>14</w:delText></w:r></w:del>' +
+      '<w:ins><w:r><w:t>2</w:t></w:r></w:ins>' +
+      '<w:del><w:r><w:delText>:00</w:delText></w:r></w:del>' +
+      '<w:ins><w:r><w:t>:00 PM</w:t></w:r></w:ins>';
+    expect(parseTrackedChanges(contiguous)).toEqual([
+      { kind: 'replace', deleted: '14:00', inserted: '2:00 PM' },
+    ]);
+
+    // An unchanged run between two edits keeps them separate.
+    const split =
+      '<w:del><w:r><w:delText>a</w:delText></w:r></w:del>' +
+      '<w:ins><w:r><w:t>A</w:t></w:r></w:ins>' +
+      '<w:r><w:t> and </w:t></w:r>' +
+      '<w:del><w:r><w:delText>b</w:delText></w:r></w:del>';
+    expect(parseTrackedChanges(split)).toEqual([
+      { kind: 'replace', deleted: 'a', inserted: 'A' },
+      { kind: 'delete', deleted: 'b' },
     ]);
   });
 
