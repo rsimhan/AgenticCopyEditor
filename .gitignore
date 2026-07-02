@@ -3,12 +3,20 @@
 
 # Node
 node_modules/
+dist/
+*.tsbuildinfo
+coverage/
 
 # Env / secrets
 .env
 .env.*
+!.env.example
 
-# Python
+# Logs
+*.log
+pnpm-debug.log*
+
+# Python (legacy)
 __pycache__/
 *.pyc
 .venv/

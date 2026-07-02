@@ -1,0 +1,22 @@
+services:
+  postgres:
+    # pgvector image bundles the `vector` extension on top of Postgres 16 (SPEC §9 M0).
+    image: pgvector/pgvector:pg16
+    container_name: ace_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ace
+      POSTGRES_PASSWORD: ace_dev_password
+      POSTGRES_DB: ace
+    ports:
+      - '5433:5432'
+    volumes:
+      - ace_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ace -d ace']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ace_pgdata:

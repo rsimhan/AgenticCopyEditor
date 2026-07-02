@@ -1,0 +1,40 @@
+{
+  "name": "agentic-copy-editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Active-learning, human-in-the-loop copy-editing platform for statistical/numerical reporting in scientific manuscripts.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "migrate:up": "node-pg-migrate up --envPath .env --migrations-dir migrations --migration-file-language sql",
+    "migrate:down": "node-pg-migrate down --envPath .env --migrations-dir migrations --migration-file-language sql",
+    "migrate:create": "node-pg-migrate create --migrations-dir migrations --migration-file-language sql"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "pgvector": "^0.2.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "node-pg-migrate": "^7.9.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

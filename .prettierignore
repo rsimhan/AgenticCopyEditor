@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+pnpm-lock.yaml
+# Design docs are hand-formatted (tables, ASCII diagrams); don't let Prettier rewrap them.
+docs/
+*.md
