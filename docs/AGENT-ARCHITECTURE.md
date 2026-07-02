@@ -1,10 +1,11 @@
 # Agent Architecture
 
-> **Status:** foundational design (2026-07-02). Companion to `Agentic Copy Editor - SPEC.md`
+> **Status:** foundational design (2026-07-02; updated 2026-07-03 with the deployment-phase model,
+> §14, and the service-layer reframing of §5.7). Companion to `Agentic Copy Editor - SPEC.md`
 > (data model + pipeline) and `ARCHITECTURE-REVIEW.md` (why the rule model looks the way it does).
 > This document defines the **agent orchestration layer** and, above all, the **stable seams** —
 > the contracts we commit to now so that features can be built iteratively without a foundational
-> refactor. Read §5 (Stable Seams) and §12 (Foundational vs Iterative) first.
+> refactor. Read §5 (Stable Seams), §12 (Foundational vs Iterative), and §14 (Deployment phases) first.
 
 ---
 
@@ -98,10 +99,13 @@ deterministic engine as System 1 and reasoning agents as System 2.
       │  extracted_statistics · manuscript_tables/table_cells · feedback_memory_*     │
       └──────────────────────────────────────────────────────────────────────────────┘
              ▲
-             │  intent-scoped tools (§5.7)
-      ┌──────────────┐
-      │  MCP SERVER  │  ← external boundary; worker service & editor dashboard call this
-      └──────────────┘
+             │  intent-scoped operations (§5.7)
+      ┌───────────────────────── SERVICE LAYER (§5.7) ───────────────────────────────┐
+      │  transport-agnostic operations: ingest · post_suggestion · run_deterministic  │
+      │  · reconcile · merge_chunk · record_editor_action · retrieve_curated_lessons  │
+      └──────────────────────────────────────────────────────────────────────────────┘
+        ▲                       ▲                          ▲
+        │ CLI runner (Phase 1)  │ REST/tRPC (Phase 2 UI)   │ MCP (Phase 3 Co-Pilot)   ← adapters (§14)
 ```
 
 ---
@@ -212,12 +216,22 @@ interface Embedder   { embed(text: string): Promise<{ model: string; dims: numbe
 **Contract:** swapping Claude↔another model or Gemini↔another embedder is a config + re-embed job,
 never a schema or pipeline change (the polymorphic vector store already guarantees this).
 
-### 5.7 Seam — the MCP boundary
-The SPEC §8 tools are the **external API**. The worker service and the editor dashboard call MCP;
-they do not reach into agents or the DB directly. Intent-scoped, transactional, validated.
+### 5.7 Seam — the Service Layer (transport-agnostic) + adapters
+The SPEC §8 intent-scoped operations (`ingest_manuscript`, `post_suggestion`,
+`run_deterministic_fixes`, `reconcile_statistics`, `merge_chunk_suggestions`,
+`record_editor_action`, `retrieve_curated_lessons`, …) are implemented **once** as plain async
+**service functions** over the ledger — validated, transactional, transport-agnostic. Every
+consumer reaches them through a **thin adapter**:
 
-**Contract:** the MCP tool surface is versioned and stable. New internal agents/phases do not
-change it unless a genuinely new *intent* is added (then a new tool, not a changed one).
+- **CLI runner** — the Phase-1 (Test) surface: fire a manuscript from the IDE → report (§14).
+- **REST/tRPC** — the Phase-2 (Launch) web UI: work pipeline + admin (§14).
+- **MCP** — the Phase-3 (Agentic) surface: the same operations exposed as tools to a Co-Pilot (§14).
+
+**Contract:** the *service layer* is the stable seam — **not any one transport.** An adapter is
+thin (validate input → call a service function → serialize the result); adding or removing a
+transport never touches the service functions, the pipeline, or the ledger. This is why **MCP is
+deferred, not foundational**: it is one adapter over a core that is always needed. Never bury
+reusable logic in a transport — the service function is the unit of reuse.
 
 ---
 
@@ -284,6 +298,17 @@ Confidence and tier travel *with* the suggestion (`origin_tier`, `confidence`) s
 the merge engine make consistent decisions. The ladder is policy encoded in the orchestrator +
 `is_auto_applicable`, not scattered through agents.
 
+### 8.1 The autonomy dial — earned per-rule, not switched globally
+
+Autonomy is **not** a global flag flipped at "launch." It is the auto-apply line moving *outward,
+per rule, as measured accuracy earns it.* This is exactly why `is_deterministic` and
+`is_auto_applicable` are **separate** columns (§5.2), and why `action_audit_log` is indexed by
+`(rule_id, created_at)` (§10): every accept / reject / override is a per-rule accuracy signal. A
+rule graduates `surface → auto_applied` when its numbers justify it — and can be demoted if they
+regress. The deployment phases (§14) are therefore gated by **measured quality, not features**: the
+audit ledger is the measurement instrument, and Phase 1's real job is to *produce* those metrics.
+Start conservative (narrow auto-apply set) and widen rule-by-rule as the flywheel proves each one.
+
 ---
 
 ## 9. Extensibility playbook (proving "no refactor")
@@ -299,10 +324,19 @@ Each scenario touches only additive surfaces:
 | A whole new competency | 1 new `Agent` + 1 `Phase` in `WORKFLOW` | existing phases/contracts |
 | A new guideline document | ingestion → candidate rows → **human curation gate** → active | code (data-only) |
 | A new LLM/embedding provider | config + client impl behind `LlmClient`/`Embedder` | schema, pipeline |
-| A new output channel (web UI) | a new reader of the ledger / MCP client | pipeline |
+| A new transport (CLI, REST, MCP) | a thin adapter over the service layer (§5.7) | service functions, pipeline, ledger |
 
 The recurring pattern: **new capability = additive rows + additive handlers/agents behind stable
 seams.** If a change would instead require editing a seam's shape, that is the design trigger.
+
+**Admin-editability boundary (Phase 2, Launch).** The admin UI splits cleanly along a line already
+in the design. Domain-expert admins can, from a UI: activate/deactivate rules, edit
+`description`/thresholds, curate lessons (the curation gate), and **add *reasoning* rules** — those
+are a `description` + few-shot examples the LLM tier consumes, **no code**. **New *deterministic*
+rules still require a developer** (a `RuleHandler` in code) — arbitrary regex authored from a web
+form is a safety hazard. Most new guideline rules land as reasoning rules admins can own via the
+guideline-ingestion path; the fast, auditable deterministic core stays in engineering hands by
+design. This is a feature, not a limitation.
 
 ---
 
@@ -356,13 +390,14 @@ establish the seams so no later milestone forces a refactor.
    agent exists at first.
 4. The **Orchestrator/Workflow** skeleton (§5.4) as a deterministic, queue-driven DAG with
    idempotency + per-chunk locking wired — even with phases stubbed.
-5. **Provider abstraction** (§5.6) and **MCP boundary** (§5.7) as thin interfaces.
+5. **Provider abstraction** (§5.6) and the **service-layer seam** (§5.7) as thin interfaces.
 6. **Codepoint-offset discipline** and **structured tables** (SPEC Principle 8, §3.1) baked into
    the substrate.
 
 **Iterative (Milestones 2+ — add behind the seams, no refactor):**
-- Fill the deterministic rule set (M2), then reconciliation + consistency (M3), merge (M4), MCP
-  surface (M5), flywheel (M6), reasoning tier (M7).
+- Fill the deterministic rule set (M2), then reconciliation + consistency (M3), merge (M4), the
+  **service layer + CLI test-runner (M5)**, flywheel (M6), reasoning tier (M7). Transport adapters
+  (MCP, REST) are added when their consumer is concrete (§14) — not upfront.
 - Grow the specialist roster and the rule catalog rule-by-rule.
 - Elicit and encode the domain expert's escalation thresholds and query taxonomy.
 - Add the document-scope semantic-reasoning phase if/when guidelines demand it.
@@ -382,3 +417,34 @@ Not derivable from the guideline documents; required to make the ladder concrete
    canonical (first use? most frequent? the abstract? house default?).
 4. **Confidence calibration** — examples of "obvious," "worth flagging," and "genuinely
    ambiguous" per rule, to seed the reasoning tier and the flywheel.
+
+---
+
+## 14. Deployment phases (consumers over one service layer)
+
+The product ships in **three phases of increasing autonomy**. They are three *consumers/adapters*
+over the one service layer (§5.7) — **not three systems.** The deterministic-first engine,
+non-destructive ledger, append-only audit, flywheel, and curation gate are identical throughout.
+Only the adapter and the position of the auto-apply/HITL line (§8.1) change. Nothing here forces a
+refactor between phases — that is the payoff of the seams.
+
+| Phase | Consumer / adapter | Adds | Constant core |
+|---|---|---|---|
+| **1 · Test** | CLI runner fired from the IDE | run a manuscript → readable report (auto-applied vs pending vs author-query, with diffs) | engine · ledger · audit · reconcile · merge |
+| **2 · Launch** | Web UI over REST/tRPC | work pipeline (upload · review · approve/reject/override) + admin (rule-data CRUD · curation · guideline ingestion) | *same* |
+| **3 · Agentic** | Autonomous worker + Co-Pilot over MCP | file-pull triggers (watch folder / queue / Drive → pg-boss), minimum HITL | *same* |
+
+**Phase 1 (the current product) is a refinement loop, not just a runner.** The CLI runner emits a
+report; the domain expert (a practicing copy editor, §2/§13) reviews it; her overrides are
+*simultaneously* (a) the **gold set** that defines "acceptable" and (b) the **flywheel's training
+data**. Phase 1 therefore manufactures both the ground truth and the per-rule metrics (§8.1) that
+gate the later phases. Fuel it with a small corpus of real manuscripts from the expert.
+
+**Gates are measured, not scheduled.** 1→2: outputs acceptable on the gold set. 2→3:
+consistent/accurate enough to reduce HITL, per audit-derived accept/override rates. The architecture
+already carries the dial (§8.1) and the instrument (§10 audit); each phase turns the crank further.
+
+**Why this ordering of adapters.** The CLI is the cheapest way to *drive and inspect* the whole
+pipeline now, and its output is reproducible (ideal for refinement). REST arrives with the Launch
+UI. MCP arrives with the Agentic Co-Pilot, where LLM-agent tool-interop is genuinely the right fit —
+building it earlier would be a transport in search of a consumer.
