@@ -1,0 +1,49 @@
+/**
+ * Registry assembly for the Milestone 2 deterministic span rules.
+ * Adding a new deterministic rule = write a handler + add it here (+ ensure a style_rules row).
+ */
+import type { RuleHandler } from '../registry.js';
+import { RuleRegistry } from '../registry.js';
+import {
+  thousandsSeparator,
+  wholeNumberPercent,
+  leadingZero,
+  noLeadingZeroStats,
+  currencyUsFormat,
+} from './numbers.js';
+import { percentNoSpace, percentRepeatRange } from './percent.js';
+import { noSpaceOperators, gteLteSymbols } from './operators.js';
+import { temperatureCelsiusSpacing } from './units.js';
+import {
+  trademarkSymbolRemoval,
+  latinAbbrevComma,
+  ellipsisThreePeriods,
+  termToward,
+  termXhealth,
+} from './housestyle.js';
+
+/** All deterministic span-scoped handlers implemented in Milestone 2. */
+export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
+  thousandsSeparator,
+  wholeNumberPercent,
+  leadingZero,
+  noLeadingZeroStats,
+  currencyUsFormat,
+  percentNoSpace,
+  percentRepeatRange,
+  noSpaceOperators,
+  gteLteSymbols,
+  temperatureCelsiusSpacing,
+  trademarkSymbolRemoval,
+  latinAbbrevComma,
+  ellipsisThreePeriods,
+  termToward,
+  termXhealth,
+]);
+
+/** Build a RuleRegistry populated with the span handlers. */
+export function buildSpanRegistry(): RuleRegistry {
+  const reg = new RuleRegistry();
+  for (const h of spanRuleHandlers) reg.register(h);
+  return reg;
+}

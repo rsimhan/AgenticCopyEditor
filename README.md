@@ -49,8 +49,12 @@ no pipeline refactor. See [`docs/AGENT-ARCHITECTURE.md`](docs/AGENT-ARCHITECTURE
   geometry + precision policy), append-only trigger on `action_audit_log`, seeded `style_rules`
   (24), `stat_precision_policy` (9), editors. Integration smoke test inserts one row per table and
   exercises the `kind`/`proposed_text` and append-only invariants; full down→up cycle verified.
-- Milestones 2–7 — deterministic engine → extraction/reconciliation/consistency → merge → MCP →
-  flywheel → thin LLM tier.
+- **Milestone 2 — Deterministic engine** ✅ 15 span-scoped rule handlers (pure `detect`/`resolve`)
+  covering statistical + mechanical house-style rules, each with an `(input, expected)` test table
+  including the tricky cases (`6500` unchanged, `25.0%→25%`, P/α/β leading-zero exception,
+  equation-safe operator spacing, codepoint-correct spans). Per-rule auto-apply enforced. Registry
+  ↔ DB metadata guarded by an integration test. 79 unit + 20 integration tests green.
+- Milestones 3–7 — extraction/reconciliation/consistency → merge → MCP → flywheel → thin LLM tier.
 
 ## Layout
 

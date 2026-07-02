@@ -67,6 +67,25 @@ export function spansOverlap(a: CharSpan, b: CharSpan): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
+/**
+ * Convert a UTF-16 code-unit index (what a native regex match reports) to a codepoint index.
+ * Detectors run regexes on the raw string, then map match offsets to the codepoint basis so every
+ * persisted span obeys Principle 8.
+ */
+export function codeUnitToCodepoint(text: string, codeUnitIndex: number): number {
+  if (codeUnitIndex < 0 || codeUnitIndex > text.length) {
+    throw new RangeError(`code-unit index ${codeUnitIndex} out of range (${text.length} units)`);
+  }
+  let cp = 0;
+  let unit = 0;
+  for (const ch of text) {
+    if (unit >= codeUnitIndex) break;
+    unit += ch.length;
+    cp += 1;
+  }
+  return cp;
+}
+
 /** Convert a codepoint index to the equivalent UTF-16 code-unit index within `text`. */
 export function codepointToCodeUnit(text: string, codepointIndex: number): number {
   let cp = 0;
