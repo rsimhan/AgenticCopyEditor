@@ -54,7 +54,13 @@ no pipeline refactor. See [`docs/AGENT-ARCHITECTURE.md`](docs/AGENT-ARCHITECTURE
   including the tricky cases (`6500` unchanged, `25.0%→25%`, P/α/β leading-zero exception,
   equation-safe operator spacing, codepoint-correct spans). Per-rule auto-apply enforced. Registry
   ↔ DB metadata guarded by an integration test. 79 unit + 20 integration tests green.
-- Milestones 3–7 — extraction/reconciliation/consistency → merge → MCP → flywheel → thin LLM tier.
+- **Milestone 3 — Extraction + reconciliation + consistency** ✅ Phase B extractor (p-values,
+  percentages, proportions, CI bounds, sample sizes) with codepoint spans; heuristic `logical_key`;
+  B.1a deterministic derived checks (n/N↔%, CI ordering) using per-stat-type precision so it never
+  false-alarms on rounding (25% vs 24.8%); B.1b fuzzy cross-location agreement → `author_query` at
+  `base_inference`; B.2 consistency normalizers (table range-style, decimal-place). 106 unit + 29
+  integration tests green (incl. the abstract-vs-table E2E: mismatch → 1 flag, consistent → 0).
+- Milestones 4–7 — merge & arbitration → MCP server → flywheel + curation → thin LLM tier.
 
 ## Layout
 
