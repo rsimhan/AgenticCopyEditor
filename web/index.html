@@ -489,6 +489,7 @@
       let ITEMS = [],
         CHUNKS = [],
         SECTIONS = [],
+        NOTES = [],
         cur = null,
         sel = null,
         MID = null;
@@ -525,6 +526,7 @@
             `<button class="tab ${s === cur ? 'on' : ''}" onclick="go('${s.replace(/'/g, "\\'")}')">${esc(s)}</button>`,
         ).join('');
         render();
+        loadNotes(id);
       }
       const bucket = (it) =>
         it.kind === 'author_query' || it.status === 'queried'
@@ -620,14 +622,25 @@
           .querySelectorAll('.row')
           .forEach((el) => (el.onclick = () => openPop(+el.dataset.id)));
         meters();
+        routeHint();
       }
       function meters() {
-        const rev = ITEMS.filter((i) => i.status !== 'pending').length,
-          app = ITEMS.filter((i) => i.appliedInKriyadocs).length;
+        // "Reviewed" = the senior has actually acted (accept/reject/override/raise-query).
+        // Auto-applied changes are the agent's own work, not senior review, so they're excluded
+        // from BOTH parts of the ratio (the denominator is only what needs a senior decision).
+        const needsReview = ITEMS.filter((i) => i.status !== 'auto_applied');
+        const rev = needsReview.filter(decided).length;
+        // "Applied" = juniors transcribe every confirmed edit into kriyadocs by hand, including
+        // auto-applied ones. Rejected items and author queries produce no edit, so the denominator
+        // is only the changes that actually need transcribing.
+        const toApply = ITEMS.filter((i) =>
+          ['auto_applied', 'accepted', 'overridden'].includes(i.status),
+        );
+        const app = toApply.filter((i) => i.appliedInKriyadocs).length;
         mRev.textContent = rev;
         mApp.textContent = app;
-        mTot.textContent = ITEMS.length;
-        mTot2.textContent = ITEMS.length;
+        mTot.textContent = needsReview.length;
+        mTot2.textContent = toApply.length;
       }
       function go(s) {
         cur = s;
@@ -688,21 +701,57 @@
       function closePop() {
         document.getElementById('scrim').classList.remove('on');
       }
+      // The composer hint shows where the note routes (@target) and which change it will attach to
+      // (the currently selected one — e.g. right after you reject it).
       function routeHint() {
         const m = msg.value.match(/@(agent|junior|senior)/i);
-        document.getElementById('routed').textContent = m ? `→ ${m[1].toLowerCase()}` : '';
+        const parts = [];
+        if (m) parts.push(`→ ${m[1].toLowerCase()}`);
+        if (sel != null) {
+          const it = find(sel);
+          if (it) parts.push(`on ${it.ruleId}`);
+        }
+        document.getElementById('routed').textContent = parts.join(' · ');
       }
-      function sendMsg() {
+      function renderNote(n) {
+        const to = n.routedTo || 'note';
+        const it = n.suggestionId != null ? find(n.suggestionId) : null;
+        const ref = it
+          ? ` <span style="color:var(--soft)">· on <b>${esc(it.ruleId)}</b> “${esc(it.original)}”</span>`
+          : n.ruleId
+            ? ` <span style="color:var(--soft)">· rule <b>${esc(n.ruleId)}</b></span>`
+            : '';
+        const hint =
+          to === 'agent'
+            ? ` <span style="color:var(--oxblood)">· saved as rule feedback</span>`
+            : '';
+        return `<div class="msg"><span class="to ${to}">${to}</span><span>${esc(n.body)}${ref}${hint}</span></div>`;
+      }
+      function renderThread() {
+        const el = document.getElementById('thread');
+        el.innerHTML = NOTES.map(renderNote).join('');
+        el.scrollTop = el.scrollHeight;
+      }
+      async function loadNotes(id) {
+        NOTES = await api(`/api/manuscripts/${id}/notes`);
+        renderThread();
+      }
+      async function sendMsg() {
         const v = msg.value.trim();
-        if (!v) return;
+        if (!v || !MID) return;
         const m = v.match(/@(agent|junior|senior)/i);
         const to = m ? m[1].toLowerCase() : 'note';
-        const extra =
-          to === 'agent'
-            ? ` <span style="color:var(--oxblood)">→ would propose a rule change to confirm (coming soon)</span>`
-            : '';
-        thread.innerHTML += `<div class="msg"><span class="to ${to}">${to}</span><span>${esc(v.replace(/@\w+/, '').trim())}${extra}</span></div>`;
-        thread.scrollTop = thread.scrollHeight;
+        const body = v.replace(/@\w+/, '').trim();
+        if (!body) return;
+        const payload = { manuscriptId: MID, routedTo: to, body };
+        if (sel != null) payload.suggestionId = sel;
+        const note = await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then((r) => r.json());
+        NOTES.push(note);
+        renderThread();
         msg.value = '';
         routeHint();
       }

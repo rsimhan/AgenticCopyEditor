@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { getPool, closePool } from '../db/pool.js';
 import { getManuscriptReport } from '../service/report.js';
+import { addNote, listNotes, type NoteRoute } from '../service/notes.js';
 import { PgLedgerRepo } from '../db/ledger-repo.js';
 import type { EditorAction } from '../domain/types.js';
 
@@ -65,6 +66,30 @@ async function main(): Promise<void> {
       [b.suggestionId, !!b.applied],
     );
     return { ok: true };
+  });
+
+  // Notes thread: durable @-routed notes, optionally attached to a specific change.
+  app.get('/api/manuscripts/:id/notes', async (req) => {
+    const { id } = req.params as { id: string };
+    return listNotes(id);
+  });
+
+  app.post('/api/notes', async (req) => {
+    const b = req.body as {
+      manuscriptId: string;
+      suggestionId?: number;
+      routedTo?: NoteRoute;
+      body: string;
+      editorId?: number;
+    };
+    const editorId = b.editorId ?? (await defaultEditorId());
+    return addNote({
+      manuscriptId: b.manuscriptId,
+      ...(b.suggestionId !== undefined ? { suggestionId: b.suggestionId } : {}),
+      editorId,
+      routedTo: b.routedTo ?? 'note',
+      body: b.body,
+    });
   });
 
   const port = Number(process.env.PORT ?? 5273);

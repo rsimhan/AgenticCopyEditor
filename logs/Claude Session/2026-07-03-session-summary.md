@@ -282,3 +282,43 @@ React/Vite (currently vanilla `web/index.html` over the Fastify API — fine to 
 persist the @-command notes thread + wire "Adjust this rule" (admin) — both stubbed; (4) rule gap
 `numeral_conversion` (two→2, reasoning-tier); (5) docx conversion cleanup; (6) isolate integration
 tests from the dev DB so they stop polluting the console picker.
+
+### UPDATE 3 — Resumed on a new device; env rebuild + meter fix + notes persistence
+**New machine (Windows 11 Home, Lenovo Slim 7 16IAH7).** Full toolchain rebuilt from scratch:
+Node 24 LTS, pnpm 9.15.0 (via corepack), Docker Desktop + WSL2. Docker needed **Intel VT-x
+enabled in BIOS** (was off; `VirtualizationFirmwareEnabled` reads False under Win11 VBS even when
+on — not a reliable check) then `wsl --install`. Postgres+pgvector up; **migrations now 0001–0013**.
+Git push needed a one-time GCM browser **Authorize** (repo is anon-readable, so `ls-remote` worked
+but push didn't until authorized). Dev on Windows: call tooling via full paths / `corepack.cmd`;
+the real UAT doc lives at `tests/uat/input/89166-1430822-1-ED.docx` (folder normalized to lowercase
+`input`; single file — no original/edited pair yet, so `ace uat` can't score it, only `ace edit`).
+
+**Bug fixed + pushed (`2c560b0`):** `pnpm ace edit <file>` (no `--html`) always failed with a usage
+error — the file-finder excluded index `htmlIdx+1`, which is 0 when `--html` is absent, dropping the
+sole positional arg. Guarded on `htmlIdx >= 0`. Regression from `a40c2ae`; no test covered CLI args.
+
+**Console refinement A — meter semantics (uncommitted):** `web/index.html` `meters()`. "reviewed"
+no longer counts **auto-applied** as senior-reviewed (agent did those); denominators fixed —
+reviewed is out of items needing a senior decision (non-auto-applied), applied is out of
+confirmed edits to transcribe (`auto_applied`+`accepted`+`overridden`), not all items.
+
+**NEXT #3 (notes half) DONE — the @-command thread now persists (uncommitted):**
+- migration `0013_review_notes` — `review_notes` table (manuscript + optional suggestion + rule +
+  editor + `routed_to` note/junior/senior/agent + body).
+- `src/service/notes.ts` — `addNote`/`listNotes` (transport-agnostic; denormalizes the attached
+  change's rule so `@agent` feedback is retrievable per-rule as flywheel signal).
+- API: `POST /api/notes`, `GET /api/manuscripts/:id/notes`.
+- `web/index.html`: Send persists (attached to the currently-selected change; composer hint shows
+  `→ route · on <rule>`), thread loads from DB on open, survives refresh.
+- `tests/integration/notes.test.ts` (4 tests). **Tests: 147 unit + 45 integration green; typecheck
+  clean.** Also fixed the notes test to leave manuscripts at `status='ingested'` so they stay out of
+  the picker, and cleaned existing test-artifact rows from the dev DB (partial dent in #6).
+
+**Still stubbed = the other half of #3:** "Adjust this rule ▸" in the why-popup is still an
+`alert()`. Wiring it to real `style_rules` edits (activate/auto-apply/description, behind the
+curation gate) is the agreed next build option ("B"). `@agent` notes are now *captured* but do not
+yet change any rule.
+
+**Revised NEXT:** (B) wire "Adjust this rule" (admin/curation) — the reject→note→train loop's last
+mile; then unchanged: React/Vite front-end, `numeral_conversion` (M7 reasoning tier), docx
+conversion cleanup, and finish isolating integration tests from the dev DB (#6).
