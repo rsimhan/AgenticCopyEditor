@@ -45,7 +45,11 @@ function bucketOf(it: ReportItem): Bucket {
   if (it.status === 'auto_applied') return 'applied';
   return 'review';
 }
-const CHIP_LABEL: Record<Bucket, string> = { applied: 'Applied', review: 'Review', query: 'Author query' };
+const CHIP_LABEL: Record<Bucket, string> = {
+  applied: 'Applied',
+  review: 'Review',
+  query: 'Author query',
+};
 
 function renderItem(it: ReportItem): string {
   const b = bucketOf(it);

@@ -31,9 +31,9 @@ export async function ingestManuscript(input: IngestInput): Promise<IngestResult
 
     for (const ch of chunks) {
       const cr = await client.query<{ chunk_id: number }>(
-        `INSERT INTO manuscript_chunks (manuscript_id, section_name, sequence_order, chunk_type, chunk_text)
-         VALUES ($1,$2,$3,$4,$5) RETURNING chunk_id`,
-        [manuscriptId, ch.sectionName, ch.sequenceOrder, ch.chunkType, ch.chunkText],
+        `INSERT INTO manuscript_chunks (manuscript_id, section_name, sequence_order, chunk_type, region, chunk_text)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING chunk_id`,
+        [manuscriptId, ch.sectionName, ch.sequenceOrder, ch.chunkType, ch.region, ch.chunkText],
       );
       const chunkId = cr.rows[0]!.chunk_id;
 

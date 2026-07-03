@@ -17,7 +17,13 @@ import {
 import { extractStatistics } from '../pipeline/extract.js';
 import { deriveLogicalKey, guessLabelBefore } from '../pipeline/logical-key.js';
 import { mergeChunkInDb } from '../pipeline/merge-db.js';
-import { sliceByCodepoint } from '../util/offsets.js';
+import {
+  sliceByCodepoint,
+  codeUnitToCodepoint,
+  codepointLength,
+  spansOverlap,
+} from '../util/offsets.js';
+import type { CharSpan } from '../util/offsets.js';
 import type { StatExtraction } from '../domain/stats.js';
 import type { SuggestionDraft, LocationContext } from '../domain/types.js';
 
@@ -36,9 +42,10 @@ interface CellUnit {
 }
 
 async function loadProse(manuscriptId: string): Promise<ProseUnit[]> {
+  // Only body chunks are copyedited for statistical content (front/back matter are skipped).
   const r = await getPool().query(
     `SELECT chunk_id, section_name, chunk_text FROM manuscript_chunks
-      WHERE manuscript_id=$1 AND chunk_type='prose' ORDER BY sequence_order`,
+      WHERE manuscript_id=$1 AND chunk_type='prose' AND region='body' ORDER BY sequence_order`,
     [manuscriptId],
   );
   return r.rows.map((x) => ({ chunkId: x.chunk_id, section: x.section_name, text: x.chunk_text }));
@@ -52,7 +59,8 @@ async function loadDataCells(manuscriptId: string): Promise<CellUnit[]> {
        FROM table_cells tc
        JOIN manuscript_tables mt ON tc.table_id = mt.table_id
        LEFT JOIN table_cells lbl ON lbl.table_id = tc.table_id AND lbl.row_idx = tc.row_idx AND lbl.col_idx = 0
-      WHERE mt.manuscript_id=$1 AND NOT tc.is_header
+      JOIN manuscript_chunks mc ON mt.chunk_id = mc.chunk_id
+      WHERE mt.manuscript_id=$1 AND NOT tc.is_header AND mc.region='body'
       ORDER BY tc.cell_id`,
     [manuscriptId],
   );
@@ -70,22 +78,38 @@ function locationFor(section: string): LocationContext {
 
 // ---------- Phase C: deterministic fixes ----------
 
+/** Codepoint spans of URLs / DOIs / emails in text — rules must not fire inside these. */
+function urlSpans(text: string): CharSpan[] {
+  const spans: CharSpan[] = [];
+  const re = /(https?:\/\/|www\.|doi\.org|\b10\.\d{4,}\/|\bMedline:\s*|[\w.+-]+@[\w-]+\.\w+)\S*/gi;
+  for (const m of text.matchAll(re)) {
+    const start = codeUnitToCodepoint(text, m.index);
+    spans.push({ start, end: start + codepointLength(m[0]) });
+  }
+  return spans;
+}
+
 export async function runDeterministicFixes(manuscriptId: string): Promise<number> {
   let posted = 0;
-  for (const u of await loadProse(manuscriptId)) {
-    for (const s of runFormatEngine({ chunkId: u.chunkId, text: u.text }, spanRuleHandlers)) {
+  const emit = async (
+    ctx: { chunkId: number; cellId?: number; text: string; isTableCell?: boolean },
+    urls: CharSpan[],
+  ): Promise<void> => {
+    for (const s of runFormatEngine(ctx, spanRuleHandlers)) {
+      if (urls.some((u) => spansOverlap(u, s.draft.span))) continue; // skip fixes inside a URL/DOI
       await ledger.postSuggestion(s.draft, s.autoApply ? 'auto_applied' : 'pending');
       posted++;
     }
+  };
+
+  for (const u of await loadProse(manuscriptId)) {
+    await emit({ chunkId: u.chunkId, text: u.text }, urlSpans(u.text));
   }
   for (const c of await loadDataCells(manuscriptId)) {
-    for (const s of runFormatEngine(
+    await emit(
       { chunkId: c.chunkId, cellId: c.cellId, text: c.text, isTableCell: true },
-      spanRuleHandlers,
-    )) {
-      await ledger.postSuggestion(s.draft, s.autoApply ? 'auto_applied' : 'pending');
-      posted++;
-    }
+      urlSpans(c.text),
+    );
   }
   return posted;
 }
