@@ -165,6 +165,28 @@
       .chg.done {
         opacity: 0.55;
       }
+      .chgw {
+        cursor: pointer;
+        border-radius: 4px;
+        padding: 0 0.05em;
+      }
+      .chgw:hover {
+        background: #fff;
+      }
+      .chgw.sel {
+        background: #fff3b0;
+        outline: 2px solid #e6c84a;
+      }
+      .doc-tbl {
+        font-family: var(--sans);
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--soft);
+        border-top: 1px solid var(--hair);
+        margin-top: 1.2rem;
+        padding-top: 0.6rem;
+      }
       .queue {
         width: 360px;
         flex: none;
@@ -465,6 +487,7 @@
 
     <script>
       let ITEMS = [],
+        CHUNKS = [],
         SECTIONS = [],
         cur = null,
         sel = null,
@@ -493,6 +516,7 @@
         document.getElementById('msTitle').textContent =
           (rep.title || 'manuscript') + ' · ' + rep.status;
         ITEMS = rep.items.filter((i) => i.status !== 'superseded');
+        CHUNKS = rep.chunks || [];
         SECTIONS = [...new Set(ITEMS.map((i) => i.section))];
         cur = SECTIONS[0] || null;
         sel = null;
@@ -528,20 +552,51 @@
         const cls = decided(it) ? 'done' : bucket(it);
         return `<span class="chg ${cls}"><del>${esc(it.original)}</del><ins>${esc(it.proposed ?? '')}</ins></span>`;
       }
+      // Render one chunk's text ONCE, splicing every in-chunk change inline at its span (sorted,
+      // non-overlapping). Overlapping/cell changes are skipped here and shown via the queue.
+      function renderChunk(chunk) {
+        const cps = [...chunk.text];
+        const marks = ITEMS.filter((i) => i.chunkId === chunk.chunkId && !i.isCell).sort(
+          (a, b) => a.charStart - b.charStart,
+        );
+        let out = '',
+          pos = 0;
+        for (const it of marks) {
+          if (it.charStart < pos) continue; // overlap — leave to the queue
+          out += esc(cps.slice(pos, it.charStart).join(''));
+          out += `<span class="chgw ${it.suggestionId === sel ? 'sel' : ''}" data-id="${it.suggestionId}">${changeInline(it)}</span>`;
+          pos = it.charEnd;
+        }
+        out += esc(cps.slice(pos).join(''));
+        return `<p class="sent">${out}</p>`;
+      }
       function render() {
         const list = ITEMS.filter((i) => i.section === cur);
-        document.getElementById('doc').innerHTML =
-          `<h2>${esc(cur || '')}</h2>` +
-          (list.length
+        const secChunks = CHUNKS.filter((c) => c.section === cur);
+        const cellItems = list.filter((i) => i.isCell);
+        let docHtml = `<h2>${esc(cur || '')}</h2>`;
+        docHtml += secChunks.length
+          ? secChunks.map(renderChunk).join('')
+          : list.length
             ? list
                 .map(
                   (it) =>
-                    `<p class="sent ${it.suggestionId === sel ? 'sel' : ''}" data-id="${it.suggestionId}">${esc(it.contextPre)} ${changeInline(it)} ${esc(it.contextPost)}</p>`,
+                    `<p class="sent"><span class="chgw" data-id="${it.suggestionId}">${esc(it.contextPre)} ${changeInline(it)} ${esc(it.contextPost)}</span></p>`,
                 )
                 .join('')
-            : '<div class="empty">No changes in this section.</div>');
+            : '<div class="empty">No changes in this section.</div>';
+        if (cellItems.length)
+          docHtml +=
+            `<div class="doc-tbl">Table cells</div>` +
+            cellItems
+              .map(
+                (it) =>
+                  `<p class="sent"><span class="chgw" data-id="${it.suggestionId}">${changeInline(it)}</span></p>`,
+              )
+              .join('');
+        document.getElementById('doc').innerHTML = docHtml;
         document
-          .querySelectorAll('.sent')
+          .querySelectorAll('.chgw')
           .forEach((el) => (el.onclick = () => openPop(+el.dataset.id)));
         document.getElementById('qTitle').textContent = `Changes · ${cur || ''}`;
         document.getElementById('queue').innerHTML = list

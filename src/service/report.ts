@@ -23,6 +23,18 @@ export interface ReportItem {
   contextPre: string;
   contextPost: string;
   appliedInKriyadocs: boolean;
+  /** For faithful in-place rendering: the chunk + codepoint span the change occupies. */
+  chunkId: number;
+  charStart: number;
+  charEnd: number;
+  isCell: boolean;
+}
+
+export interface ReportChunk {
+  chunkId: number;
+  section: string;
+  sequenceOrder: number;
+  text: string;
 }
 
 export interface ManuscriptReport {
@@ -31,6 +43,8 @@ export interface ManuscriptReport {
   status: string;
   counts: { autoApplied: number; pending: number; queries: number; superseded: number };
   items: ReportItem[];
+  /** Body prose chunks, in order — the front-end renders each once with its changes spliced in. */
+  chunks: ReportChunk[];
 }
 
 /** Extract the sentence around [start,end) from `text`, returned as pre/post around the change. */
@@ -49,6 +63,8 @@ function context(text: string, start: number, end: number): { pre: string; post:
 
 interface Row {
   suggestion_id: number;
+  chunk_id: number;
+  cell_id: number | null;
   section_name: string;
   rule_id: string;
   rule_description: string;
@@ -71,16 +87,26 @@ export async function getManuscriptReport(manuscriptId: string): Promise<Manuscr
     manuscriptId,
   ]);
   const rows = await pool.query<Row>(
-    `SELECT es.suggestion_id, mc.section_name, es.rule_id, sr.description AS rule_description,
-            es.kind, es.status, es.origin_tier, es.confidence, es.original_text, es.proposed_text,
-            es.query_message, es.char_start_index, es.char_end_index, es.applied_in_kriyadocs,
-            COALESCE(tcx.cell_text, mc.chunk_text) AS src_text
+    `SELECT es.suggestion_id, es.chunk_id, es.cell_id, mc.section_name, es.rule_id,
+            sr.description AS rule_description, es.kind, es.status, es.origin_tier, es.confidence,
+            es.original_text, es.proposed_text, es.query_message, es.char_start_index,
+            es.char_end_index, es.applied_in_kriyadocs, COALESCE(tcx.cell_text, mc.chunk_text) AS src_text
        FROM editing_suggestions es
        JOIN manuscript_chunks mc ON es.chunk_id = mc.chunk_id
        JOIN style_rules sr ON es.rule_id = sr.rule_id
        LEFT JOIN table_cells tcx ON es.cell_id = tcx.cell_id
       WHERE mc.manuscript_id=$1
       ORDER BY mc.sequence_order, es.char_start_index, es.suggestion_id`,
+    [manuscriptId],
+  );
+  const chunkRows = await pool.query<{
+    chunk_id: number;
+    section_name: string;
+    sequence_order: number;
+    chunk_text: string;
+  }>(
+    `SELECT chunk_id, section_name, sequence_order, chunk_text FROM manuscript_chunks
+      WHERE manuscript_id=$1 AND chunk_type='prose' AND region='body' ORDER BY sequence_order`,
     [manuscriptId],
   );
 
@@ -101,8 +127,19 @@ export async function getManuscriptReport(manuscriptId: string): Promise<Manuscr
       contextPre: ctx.pre,
       contextPost: ctx.post,
       appliedInKriyadocs: r.applied_in_kriyadocs,
+      chunkId: r.chunk_id,
+      charStart: r.char_start_index,
+      charEnd: r.char_end_index,
+      isCell: r.cell_id !== null,
     };
   });
+
+  const chunks: ReportChunk[] = chunkRows.rows.map((c) => ({
+    chunkId: c.chunk_id,
+    section: c.section_name,
+    sequenceOrder: c.sequence_order,
+    text: c.chunk_text,
+  }));
 
   const counts = {
     autoApplied: items.filter((i) => i.status === 'auto_applied').length,
@@ -117,6 +154,7 @@ export async function getManuscriptReport(manuscriptId: string): Promise<Manuscr
     status: ms.rows[0]?.status ?? 'unknown',
     counts,
     items,
+    chunks,
   };
 }
 
