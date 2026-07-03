@@ -26,3 +26,6 @@ venv/
 # (README is force-tracked to document the structure.)
 tests/uat/*
 !tests/uat/README.md
+
+# Claude session logs — local working notes for context continuity.
+logs/
