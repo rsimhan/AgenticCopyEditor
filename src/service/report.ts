@@ -1,19 +1,28 @@
 /**
- * Service operation: produce a human-readable review report for a manuscript — the Phase-1 (Test)
- * output. Groups suggestions by section and status so the pipeline's behavior can be inspected and
- * refined against expert judgment (AGENT-ARCHITECTURE §14).
+ * Service operation: produce a review report for a manuscript — consumed by the CLI text report,
+ * the HTML report, and the review console API. Each item carries enough to render the console: the
+ * change, its rule + plain-language description, tier/confidence, a surrounding-sentence context
+ * snippet (the "address" a junior uses to find the text in kriyadocs), and both status dimensions.
  */
 import { getPool } from '../db/pool.js';
+import { toCodepoints } from '../util/offsets.js';
 
 export interface ReportItem {
+  suggestionId: number;
   section: string;
   ruleId: string;
+  ruleDescription: string;
   kind: 'edit' | 'author_query';
   status: string;
   originTier: string;
+  confidence: number | null;
   original: string;
   proposed: string | null;
   queryMessage: string | null;
+  /** Surrounding sentence, split around the change so the UI can highlight it in place. */
+  contextPre: string;
+  contextPost: string;
+  appliedInKriyadocs: boolean;
 }
 
 export interface ManuscriptReport {
@@ -24,31 +33,76 @@ export interface ManuscriptReport {
   items: ReportItem[];
 }
 
+/** Extract the sentence around [start,end) from `text`, returned as pre/post around the change. */
+function context(text: string, start: number, end: number): { pre: string; post: string } {
+  const cps = toCodepoints(text);
+  let s = start;
+  while (s > 0 && !/[.!?]/.test(cps[s - 1] ?? '')) s--;
+  let e = end;
+  while (e < cps.length && !/[.!?]/.test(cps[e] ?? '')) e++;
+  if (e < cps.length) e++; // include the terminal punctuation
+  return {
+    pre: cps.slice(s, start).join('').replace(/^\s+/, ''),
+    post: cps.slice(end, e).join('').replace(/\s+$/, ''),
+  };
+}
+
+interface Row {
+  suggestion_id: number;
+  section_name: string;
+  rule_id: string;
+  rule_description: string;
+  kind: 'edit' | 'author_query';
+  status: string;
+  origin_tier: string;
+  confidence: string | null;
+  original_text: string;
+  proposed_text: string | null;
+  query_message: string | null;
+  char_start_index: number;
+  char_end_index: number;
+  applied_in_kriyadocs: boolean;
+  src_text: string;
+}
+
 export async function getManuscriptReport(manuscriptId: string): Promise<ManuscriptReport> {
   const pool = getPool();
   const ms = await pool.query(`SELECT title, status FROM manuscripts WHERE manuscript_id=$1`, [
     manuscriptId,
   ]);
-  const rows = await pool.query(
-    `SELECT mc.section_name, es.rule_id, es.kind, es.status, es.origin_tier,
-            es.original_text, es.proposed_text, es.query_message
+  const rows = await pool.query<Row>(
+    `SELECT es.suggestion_id, mc.section_name, es.rule_id, sr.description AS rule_description,
+            es.kind, es.status, es.origin_tier, es.confidence, es.original_text, es.proposed_text,
+            es.query_message, es.char_start_index, es.char_end_index, es.applied_in_kriyadocs,
+            COALESCE(tcx.cell_text, mc.chunk_text) AS src_text
        FROM editing_suggestions es
        JOIN manuscript_chunks mc ON es.chunk_id = mc.chunk_id
+       JOIN style_rules sr ON es.rule_id = sr.rule_id
+       LEFT JOIN table_cells tcx ON es.cell_id = tcx.cell_id
       WHERE mc.manuscript_id=$1
       ORDER BY mc.sequence_order, es.char_start_index, es.suggestion_id`,
     [manuscriptId],
   );
 
-  const items: ReportItem[] = rows.rows.map((r) => ({
-    section: r.section_name,
-    ruleId: r.rule_id,
-    kind: r.kind,
-    status: r.status,
-    originTier: r.origin_tier,
-    original: r.original_text,
-    proposed: r.proposed_text,
-    queryMessage: r.query_message,
-  }));
+  const items: ReportItem[] = rows.rows.map((r) => {
+    const ctx = context(r.src_text, r.char_start_index, r.char_end_index);
+    return {
+      suggestionId: r.suggestion_id,
+      section: r.section_name,
+      ruleId: r.rule_id,
+      ruleDescription: r.rule_description,
+      kind: r.kind,
+      status: r.status,
+      originTier: r.origin_tier,
+      confidence: r.confidence !== null ? Number(r.confidence) : null,
+      original: r.original_text,
+      proposed: r.proposed_text,
+      queryMessage: r.query_message,
+      contextPre: ctx.pre,
+      contextPost: ctx.post,
+      appliedInKriyadocs: r.applied_in_kriyadocs,
+    };
+  });
 
   const counts = {
     autoApplied: items.filter((i) => i.status === 'auto_applied').length,
@@ -76,7 +130,6 @@ export function formatReport(report: ManuscriptReport): string {
       `Author queries: ${report.counts.queries}  ·  Superseded: ${report.counts.superseded}`,
   );
   lines.push('');
-
   let section = '';
   for (const it of report.items) {
     if (it.status === 'superseded') continue;
@@ -92,6 +145,5 @@ export function formatReport(report: ManuscriptReport): string {
       lines.push(`  ${mark} ${tag}  "${it.original}" → "${it.proposed ?? ''}"`);
     }
   }
-  if (report.items.every((i) => i.status === 'superseded')) lines.push('  (no suggestions)');
   return lines.join('\n');
 }

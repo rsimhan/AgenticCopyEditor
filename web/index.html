@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Review &amp; Training Console</title>
+    <style>
+      :root {
+        --paper: #f6f5f1;
+        --card: #fffefb;
+        --ink: #23211c;
+        --soft: #6b675e;
+        --hair: #e4e1d8;
+        --oxblood: #a23b2e;
+        --green: #2c6e52;
+        --amber: #9a6b1a;
+        --blue: #345e8c;
+        --green-bg: #e8f0ea;
+        --amber-bg: #f4ecdd;
+        --blue-bg: #e6edf4;
+        --serif: Georgia, 'Iowan Old Style', Palatino, serif;
+        --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--hair);
+        padding: 0.7rem 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 1.1rem;
+        flex-wrap: wrap;
+      }
+      .brand {
+        font-weight: 700;
+      }
+      .brand small {
+        display: block;
+        font-weight: 400;
+        color: var(--soft);
+        font-size: 0.72rem;
+      }
+      select {
+        border: 1px solid var(--hair);
+        border-radius: 7px;
+        padding: 0.3rem 0.5rem;
+        background: var(--paper);
+        font-size: 0.82rem;
+        max-width: 280px;
+      }
+      .tabs {
+        display: flex;
+        gap: 0.3rem;
+      }
+      .tab {
+        border: 1px solid var(--hair);
+        background: var(--paper);
+        border-radius: 999px;
+        padding: 0.28rem 0.8rem;
+        font-size: 0.82rem;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .tab.on {
+        background: var(--ink);
+        color: #fff;
+        border-color: var(--ink);
+      }
+      .meters {
+        margin-left: auto;
+        display: flex;
+        gap: 1rem;
+        font-size: 0.78rem;
+        color: var(--soft);
+      }
+      .meters b {
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+      .role button {
+        border: 1px solid var(--hair);
+        background: var(--paper);
+        border-radius: 999px;
+        padding: 0.24rem 0.7rem;
+        font-size: 0.78rem;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .role button.on {
+        background: var(--oxblood);
+        border-color: var(--oxblood);
+        color: #fff;
+      }
+      .split {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .doc {
+        flex: 1;
+        overflow: auto;
+        padding: 1.4rem 1.9rem;
+      }
+      .doc h2 {
+        font-family: var(--sans);
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--soft);
+        margin: 0.4rem 0 0.8rem;
+      }
+      .sent {
+        font-family: var(--serif);
+        font-size: 1.04rem;
+        line-height: 1.85;
+        margin: 0 0 0.55rem;
+        cursor: pointer;
+        padding: 0.15rem 0.3rem;
+        border-radius: 5px;
+      }
+      .sent:hover {
+        background: #fff;
+      }
+      .sent.sel {
+        background: #fff3b0;
+      }
+      .chg del {
+        color: var(--oxblood);
+        text-decoration: line-through;
+        font-family: var(--mono);
+        font-size: 0.9em;
+      }
+      .chg ins {
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 0.9em;
+      }
+      .chg.review ins {
+        color: var(--amber);
+      }
+      .chg.query {
+        color: var(--blue);
+        text-decoration: underline wavy var(--blue);
+        text-underline-offset: 3px;
+        font-family: var(--mono);
+        font-size: 0.9em;
+      }
+      .chg.done {
+        opacity: 0.55;
+      }
+      .queue {
+        width: 360px;
+        flex: none;
+        border-left: 1px solid var(--hair);
+        background: var(--card);
+        overflow: auto;
+        padding: 1rem;
+      }
+      .queue h3 {
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--soft);
+        margin: 0.2rem 0 0.8rem;
+      }
+      .row {
+        border: 1px solid var(--hair);
+        border-left: 3px solid var(--hair);
+        border-radius: 9px;
+        padding: 0.6rem 0.7rem;
+        margin-bottom: 0.55rem;
+        cursor: pointer;
+        background: var(--paper);
+      }
+      .row.applied {
+        border-left-color: var(--green);
+      }
+      .row.review {
+        border-left-color: var(--amber);
+      }
+      .row.query {
+        border-left-color: var(--blue);
+      }
+      .row.sel {
+        box-shadow: 0 0 0 2px #e6c84a;
+      }
+      .chip {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 0.14rem 0.4rem;
+        border-radius: 999px;
+      }
+      .chip.applied {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .chip.review {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .chip.query {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .chip.done {
+        background: var(--ink);
+        color: #fff;
+      }
+      .row .rule {
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+      .row .ba {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        margin-top: 0.35rem;
+        color: var(--soft);
+      }
+      .row .ba del {
+        color: var(--oxblood);
+      }
+      .row .ba ins {
+        color: var(--green);
+      }
+      .acts {
+        display: flex;
+        gap: 0.3rem;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .acts button {
+        font-size: 0.72rem;
+        border: 1px solid var(--hair);
+        background: #fff;
+        border-radius: 6px;
+        padding: 0.2rem 0.5rem;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .acts button:hover {
+        border-color: var(--ink);
+      }
+      .jr {
+        display: none;
+      }
+      body.junior .sr {
+        display: none;
+      }
+      body.junior .jr {
+        display: inline-flex;
+        gap: 0.3rem;
+        align-items: center;
+        font-size: 0.78rem;
+      }
+      .bar {
+        border-top: 1px solid var(--hair);
+        background: var(--card);
+        padding: 0.6rem 1rem;
+      }
+      .thread {
+        max-height: 70px;
+        overflow: auto;
+        font-size: 0.82rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .msg {
+        display: flex;
+        gap: 0.5rem;
+        align-items: baseline;
+      }
+      .to {
+        font-size: 0.64rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 0.1rem 0.4rem;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .to.agent {
+        background: var(--oxblood);
+        color: #fff;
+      }
+      .to.junior {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .to.senior {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .to.note {
+        background: var(--hair);
+        color: var(--soft);
+      }
+      .composer {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .composer input {
+        flex: 1;
+        border: 1px solid var(--hair);
+        border-radius: 8px;
+        padding: 0.55rem 0.7rem;
+        font-size: 0.9rem;
+        background: var(--paper);
+      }
+      .composer .send {
+        background: var(--ink);
+        color: #fff;
+        border: 0;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        cursor: pointer;
+      }
+      .routed {
+        font-size: 0.72rem;
+        color: var(--soft);
+        min-width: 70px;
+      }
+      .scrim {
+        position: fixed;
+        inset: 0;
+        background: rgba(20, 18, 14, 0.28);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+      .scrim.on {
+        display: flex;
+      }
+      .pop {
+        background: var(--card);
+        border-radius: 14px;
+        max-width: 460px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+      }
+      .pop .h {
+        padding: 1rem 1.2rem;
+        border-bottom: 1px solid var(--hair);
+      }
+      .pop .ey {
+        font-size: 0.66rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--oxblood);
+        font-weight: 700;
+      }
+      .pop .why {
+        font-family: var(--serif);
+        font-size: 1.05rem;
+        margin: 0.35rem 0 0;
+        line-height: 1.4;
+      }
+      .pop .meta {
+        padding: 0.9rem 1.2rem;
+        font-size: 0.83rem;
+        color: var(--soft);
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.35rem 0.8rem;
+        border-bottom: 1px solid var(--hair);
+      }
+      .pop .meta b {
+        color: var(--ink);
+      }
+      .pop .foot {
+        padding: 0.9rem 1.2rem;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pop .foot button {
+        font-size: 0.82rem;
+        border: 1px solid var(--hair);
+        background: #fff;
+        border-radius: 7px;
+        padding: 0.4rem 0.7rem;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .pop .adj {
+        margin-left: auto;
+        color: var(--oxblood);
+        border-color: #e3c5bf !important;
+      }
+      .x {
+        float: right;
+        cursor: pointer;
+        color: var(--soft);
+        font-size: 1.2rem;
+      }
+      .empty {
+        color: var(--soft);
+        font-family: var(--serif);
+        font-size: 1.05rem;
+        padding: 2rem;
+      }
+    </style>
+  </head>
+  <body class="senior">
+    <header>
+      <div class="brand">Review &amp; Training Console<small id="msTitle">loading…</small></div>
+      <select id="msPick" onchange="loadReport(this.value)"></select>
+      <div class="tabs" id="tabs"></div>
+      <div class="meters">
+        <span>reviewed <b id="mRev">0</b>/<b id="mTot">0</b></span
+        ><span>applied <b id="mApp">0</b>/<b id="mTot2">0</b></span>
+      </div>
+      <div class="role">
+        view as
+        <button id="rSr" class="on" onclick="setRole('senior')">Senior</button>
+        <button id="rJr" onclick="setRole('junior')">Junior</button>
+      </div>
+    </header>
+    <div class="split">
+      <div class="doc" id="doc"></div>
+      <div class="queue">
+        <h3 id="qTitle">Changes</h3>
+        <div id="queue"></div>
+      </div>
+    </div>
+    <div class="bar">
+      <div class="thread" id="thread"></div>
+      <div class="composer">
+        <input
+          id="msg"
+          placeholder="Note or command…  try @junior, @senior, or @agent"
+          oninput="routeHint()"
+          onkeydown="if (event.key === 'Enter') sendMsg();"
+        />
+        <span class="routed" id="routed"></span
+        ><button class="send" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+    <div class="scrim" id="scrim" onclick="if (event.target === this) closePop();">
+      <div class="pop" id="pop"></div>
+    </div>
+
+    <script>
+      let ITEMS = [],
+        SECTIONS = [],
+        cur = null,
+        sel = null,
+        MID = null;
+      const esc = (s) =>
+        (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const api = (u, o) => fetch(u, o).then((r) => r.json());
+
+      async function init() {
+        const ms = await api('/api/manuscripts');
+        const pick = document.getElementById('msPick');
+        pick.innerHTML = ms
+          .map(
+            (m) =>
+              `<option value="${m.manuscript_id}">${esc(m.title || '(untitled)')} · ${m.status}</option>`,
+          )
+          .join('');
+        if (ms.length) loadReport(ms[0].manuscript_id);
+        else
+          document.getElementById('doc').innerHTML =
+            '<div class="empty">No manuscripts yet. Run <code>pnpm ace edit &lt;file&gt;</code> first.</div>';
+      }
+      async function loadReport(id) {
+        MID = id;
+        const rep = await api(`/api/manuscripts/${id}/report`);
+        document.getElementById('msTitle').textContent =
+          (rep.title || 'manuscript') + ' · ' + rep.status;
+        ITEMS = rep.items.filter((i) => i.status !== 'superseded');
+        SECTIONS = [...new Set(ITEMS.map((i) => i.section))];
+        cur = SECTIONS[0] || null;
+        sel = null;
+        document.getElementById('tabs').innerHTML = SECTIONS.map(
+          (s) =>
+            `<button class="tab ${s === cur ? 'on' : ''}" onclick="go('${s.replace(/'/g, "\\'")}')">${esc(s)}</button>`,
+        ).join('');
+        render();
+      }
+      const bucket = (it) =>
+        it.kind === 'author_query' || it.status === 'queried'
+          ? 'query'
+          : it.status === 'auto_applied'
+            ? 'applied'
+            : 'review';
+      const decided = (it) => ['accepted', 'rejected', 'overridden', 'queried'].includes(it.status);
+      function chip(it) {
+        const b = bucket(it);
+        if (['accepted', 'rejected', 'overridden'].includes(it.status))
+          return `<span class="chip done">${it.status}</span>`;
+        const label =
+          b === 'applied'
+            ? 'applied'
+            : b === 'query'
+              ? it.status === 'queried'
+                ? 'queried'
+                : 'author query'
+              : 'review';
+        return `<span class="chip ${b}">${label}</span>`;
+      }
+      function changeInline(it) {
+        if (it.kind === 'author_query') return `<span class="chg query">${esc(it.original)}</span>`;
+        const cls = decided(it) ? 'done' : bucket(it);
+        return `<span class="chg ${cls}"><del>${esc(it.original)}</del><ins>${esc(it.proposed ?? '')}</ins></span>`;
+      }
+      function render() {
+        const list = ITEMS.filter((i) => i.section === cur);
+        document.getElementById('doc').innerHTML =
+          `<h2>${esc(cur || '')}</h2>` +
+          (list.length
+            ? list
+                .map(
+                  (it) =>
+                    `<p class="sent ${it.suggestionId === sel ? 'sel' : ''}" data-id="${it.suggestionId}">${esc(it.contextPre)} ${changeInline(it)} ${esc(it.contextPost)}</p>`,
+                )
+                .join('')
+            : '<div class="empty">No changes in this section.</div>');
+        document
+          .querySelectorAll('.sent')
+          .forEach((el) => (el.onclick = () => openPop(+el.dataset.id)));
+        document.getElementById('qTitle').textContent = `Changes · ${cur || ''}`;
+        document.getElementById('queue').innerHTML = list
+          .map((it) => {
+            const b = bucket(it);
+            const ba =
+              it.kind === 'author_query'
+                ? `<div class="ba">${esc(it.original)} — flagged</div>`
+                : `<div class="ba"><del>${esc(it.original)}</del> → <ins>${esc(it.proposed ?? '')}</ins></div>`;
+            return `<div class="row ${b} ${it.suggestionId === sel ? 'sel' : ''}" data-id="${it.suggestionId}">
+      <div style="display:flex;gap:.4rem;align-items:center">${chip(it)}<span class="rule">${esc(it.ruleId)}</span></div>${ba}
+      <div class="acts">
+        <span class="sr"><button onclick="event.stopPropagation();act(${it.suggestionId},'accepted')">✓ Accept</button>
+        <button onclick="event.stopPropagation();act(${it.suggestionId},'rejected')">✗ Reject</button>
+        <button onclick="event.stopPropagation();act(${it.suggestionId},'raise_query')">? Ask</button></span>
+        <label class="jr"><input type="checkbox" ${it.appliedInKriyadocs ? 'checked' : ''} onclick="event.stopPropagation();applied(${it.suggestionId},this.checked)"> applied in kriyadocs</label>
+      </div></div>`;
+          })
+          .join('');
+        document
+          .querySelectorAll('.row')
+          .forEach((el) => (el.onclick = () => openPop(+el.dataset.id)));
+        meters();
+      }
+      function meters() {
+        const rev = ITEMS.filter((i) => i.status !== 'pending').length,
+          app = ITEMS.filter((i) => i.appliedInKriyadocs).length;
+        mRev.textContent = rev;
+        mApp.textContent = app;
+        mTot.textContent = ITEMS.length;
+        mTot2.textContent = ITEMS.length;
+      }
+      function go(s) {
+        cur = s;
+        sel = null;
+        document
+          .querySelectorAll('.tab')
+          .forEach((t) => t.classList.toggle('on', t.textContent === s));
+        render();
+      }
+      function setRole(r) {
+        document.body.className = r;
+        rSr.classList.toggle('on', r === 'senior');
+        rJr.classList.toggle('on', r === 'junior');
+        render();
+      }
+      const find = (id) => ITEMS.find((i) => i.suggestionId === id);
+      async function act(id, action) {
+        await fetch('/api/actions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ suggestionId: id, action }),
+        });
+        const it = find(id);
+        it.status = action === 'raise_query' ? 'queried' : action;
+        render();
+        closePop();
+      }
+      async function applied(id, val) {
+        await fetch('/api/applied', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ suggestionId: id, applied: val }),
+        });
+        find(id).appliedInKriyadocs = val;
+        meters();
+      }
+      function openPop(id) {
+        sel = id;
+        const it = find(id);
+        const isQ = it.kind === 'author_query';
+        const adj = document.body.classList.contains('senior')
+          ? `<button class="adj" onclick="alert('Admin: opens the rule registry entry for \\'${it.ruleId}\\' — toggle active / auto-apply, edit description, thresholds, add an example. (coming soon)')">Adjust this rule ▸</button>`
+          : '';
+        const foot = isQ
+          ? `<button class="sr" onclick="act(${id},'raise_query')">? Raise author query</button><button class="sr" onclick="act(${id},'rejected')">Dismiss</button>${adj}`
+          : `<button class="sr" onclick="act(${id},'accepted')">✓ Accept</button><button class="sr" onclick="act(${id},'rejected')">✗ Reject</button><button class="sr" onclick="act(${id},'raise_query')">? Ask author</button>${adj}`;
+        document.getElementById('pop').innerHTML =
+          `<div class="h"><span class="x" onclick="closePop()">×</span><div class="ey">Why did the agent do this?</div>
+    <div class="why">${esc(it.ruleDescription)}</div>${isQ && it.queryMessage ? `<div class="why" style="font-size:.9rem;color:var(--soft)">${esc(it.queryMessage)}</div>` : ''}</div>
+    <div class="meta"><span>Rule</span><b>${esc(it.ruleId)}</b>
+      ${!isQ ? `<span>Change</span><b style="font-family:var(--mono)">${esc(it.original)} → ${esc(it.proposed ?? '')}</b>` : ''}
+      <span>Confidence</span><b>${it.confidence != null ? it.confidence : '—'} · ${esc(it.originTier)}</b>
+      <span>Status</span><b>${esc(it.status)}</b></div>
+    <div class="foot">${foot}</div>`;
+        document.getElementById('scrim').classList.add('on');
+        render();
+      }
+      function closePop() {
+        document.getElementById('scrim').classList.remove('on');
+      }
+      function routeHint() {
+        const m = msg.value.match(/@(agent|junior|senior)/i);
+        document.getElementById('routed').textContent = m ? `→ ${m[1].toLowerCase()}` : '';
+      }
+      function sendMsg() {
+        const v = msg.value.trim();
+        if (!v) return;
+        const m = v.match(/@(agent|junior|senior)/i);
+        const to = m ? m[1].toLowerCase() : 'note';
+        const extra =
+          to === 'agent'
+            ? ` <span style="color:var(--oxblood)">→ would propose a rule change to confirm (coming soon)</span>`
+            : '';
+        thread.innerHTML += `<div class="msg"><span class="to ${to}">${to}</span><span>${esc(v.replace(/@\w+/, '').trim())}${extra}</span></div>`;
+        thread.scrollTop = thread.scrollHeight;
+        msg.value = '';
+        routeHint();
+      }
+      init();
+    </script>
+  </body>
+</html>
