@@ -27,11 +27,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  const cmd = args[0] === 'edit' ? args.slice(1) : args;
-  const file = cmd[0];
+  const rest = args[0] === 'edit' ? args.slice(1) : args;
+  // Optional: --html <out.html> writes a human-friendly report and opens it in the browser.
+  const htmlIdx = rest.indexOf('--html');
+  const htmlOut = htmlIdx >= 0 ? rest[htmlIdx + 1] : undefined;
+  const file = rest.find((a, i) => !a.startsWith('--') && i !== htmlIdx + 1);
   if (!file) {
     console.error(
-      'Usage: pnpm ace edit <file.docx|file.md>  |  pnpm ace uat <input.docx> <edited.docx>',
+      'Usage: pnpm ace edit <file.docx|file.md> [--html <out.html>]  |  pnpm ace uat <input.docx> <edited.docx>',
     );
     process.exitCode = 1;
     return;
@@ -51,7 +54,15 @@ async function main(): Promise<void> {
   );
 
   const report = await getManuscriptReport(manuscriptId);
-  console.log(formatReport(report));
+
+  if (htmlOut) {
+    const { generateHtmlReport } = await import('./service/html-report.js');
+    const { writeFileSync } = await import('node:fs');
+    writeFileSync(htmlOut, generateHtmlReport(report, basename(file)));
+    console.error(`Wrote report → ${htmlOut}`);
+  } else {
+    console.log(formatReport(report));
+  }
 }
 
 main()
