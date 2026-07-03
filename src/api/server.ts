@@ -25,7 +25,10 @@ async function main(): Promise<void> {
 
   app.get('/api/manuscripts', async () => {
     const r = await getPool().query(
-      `SELECT manuscript_id, title, status, created_at FROM manuscripts ORDER BY created_at DESC LIMIT 50`,
+      // Only pipeline-processed manuscripts (status advances past 'ingested'); this hides raw
+      // test-inserted manuscripts that never ran the pipeline.
+      `SELECT manuscript_id, title, status, created_at FROM manuscripts
+        WHERE status <> 'ingested' ORDER BY created_at DESC LIMIT 50`,
     );
     return r.rows;
   });
