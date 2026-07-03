@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   // Optional: --html <out.html> writes a human-friendly report and opens it in the browser.
   const htmlIdx = rest.indexOf('--html');
   const htmlOut = htmlIdx >= 0 ? rest[htmlIdx + 1] : undefined;
-  const file = rest.find((a, i) => !a.startsWith('--') && i !== htmlIdx + 1);
+  const file = rest.find((a, i) => !a.startsWith('--') && (htmlIdx < 0 || i !== htmlIdx + 1));
   if (!file) {
     console.error(
       'Usage: pnpm ace edit <file.docx|file.md> [--html <out.html>]  |  pnpm ace uat <input.docx> <edited.docx>',
