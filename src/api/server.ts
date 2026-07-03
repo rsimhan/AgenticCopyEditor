@@ -25,10 +25,13 @@ async function main(): Promise<void> {
 
   app.get('/api/manuscripts', async () => {
     const r = await getPool().query(
-      // Only pipeline-processed manuscripts (status advances past 'ingested'); this hides raw
-      // test-inserted manuscripts that never ran the pipeline.
-      `SELECT manuscript_id, title, status, created_at FROM manuscripts
-        WHERE status <> 'ingested' ORDER BY created_at DESC LIMIT 50`,
+      // Only pipeline-processed manuscripts (status advances past 'ingested'), deduped to the most
+      // recent per title so repeated ingests of the same file don't clutter the picker.
+      `SELECT manuscript_id, title, status, created_at FROM (
+         SELECT DISTINCT ON (COALESCE(title,'')) manuscript_id, title, status, created_at
+           FROM manuscripts WHERE status <> 'ingested'
+          ORDER BY COALESCE(title,''), created_at DESC
+       ) t ORDER BY created_at DESC LIMIT 50`,
     );
     return r.rows;
   });
