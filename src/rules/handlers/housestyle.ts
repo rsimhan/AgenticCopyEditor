@@ -55,6 +55,22 @@ export const abbrevNoDots: RuleHandler = {
 };
 
 /**
+ * range_hyphen — a numeric range takes a tight hyphen (curation note 10). Normalizes an en/em dash
+ * or a spaced hyphen BETWEEN two digits to `-` (2825–2836 → 2825-2836; 5 - 7 → 5-7). A plain tight
+ * hyphen (10-19) is already correct and not flagged. Requires a digit on the LEFT, so a leading
+ * minus/en-dash on a negative value isn't a match — negative ranges keep "to" (negative_range_to).
+ * Posts pending.
+ */
+export const rangeHyphen: RuleHandler = {
+  ruleId: 'range_hyphen',
+  scope: 'span',
+  isDeterministic: true,
+  isAutoApplicable: false,
+  detect: (ctx) => regexCandidates(ctx.text, /(?<=\d)(?:\s*[–—]\s*|\s+-\s+)(?=\d)/),
+  resolve: (): Resolution => ({ kind: 'edit', proposed: '-' }),
+};
+
+/**
  * ellipsis_three_periods — replace the Word ellipsis character with three periods. Auto.
  */
 export const ellipsisThreePeriods: RuleHandler = {

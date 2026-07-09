@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { RuleHandler, Resolution } from '../../src/rules/registry.js';
 import { minusSign } from '../../src/rules/handlers/numbers.js';
-import { abbrevNoDots } from '../../src/rules/handlers/housestyle.js';
+import { abbrevNoDots, rangeHyphen } from '../../src/rules/handlers/housestyle.js';
 import { dateFormatUs } from '../../src/rules/handlers/dates.js';
 import { pValueReporting } from '../../src/rules/handlers/stats.js';
 import { sliceByCodepoint } from '../../src/util/offsets.js';
@@ -28,6 +28,17 @@ function table(handler: RuleHandler, cases: Case[]) {
       expect(proposed(handler, input)).toBe(expected);
     });
   }
+}
+
+/** Apply the first edit into `text` at its span → the full transformed string (unchanged if none). */
+function applied(handler: RuleHandler, text: string): string {
+  const ctx = { chunkId: 1, text };
+  const c = handler.detect(ctx)[0];
+  if (!c) return text;
+  const res = handler.resolve(c, ctx);
+  if (res.kind !== 'edit') return text;
+  const cps = [...text];
+  return cps.slice(0, c.span.start).join('') + res.proposed + cps.slice(c.span.end).join('');
 }
 
 describe('abbrev_no_dots (note 19)', () => {
@@ -94,4 +105,22 @@ describe('p_value_reporting (note 13)', () => {
     ['P>.99', '*P*>.99'],
     ['the SNP was significant', null], // no operator+value → not a P value
   ]);
+});
+
+describe('range_hyphen (note 10)', () => {
+  const cases: Array<[string, string]> = [
+    ['2825–2836', '2825-2836'], // en dash → hyphen
+    ['aged 10–19 years', 'aged 10-19 years'],
+    ['5 – 7', '5-7'], // spaced en dash
+    ['5 - 7', '5-7'], // spaced hyphen → tight
+    ['scores 3—4', 'scores 3-4'], // em dash
+    ['10-19', '10-19'], // already a tight hyphen → unchanged
+    ['well-being', 'well-being'], // word hyphen, no digits → unchanged
+    ['08:00 to 24:00', '08:00 to 24:00'], // "to" range untouched (times)
+  ];
+  for (const [input, out] of cases) {
+    it(`range_hyphen: ${JSON.stringify(input)} → ${JSON.stringify(out)}`, () => {
+      expect(applied(rangeHyphen, input)).toBe(out);
+    });
+  }
 });
