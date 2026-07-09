@@ -79,12 +79,16 @@ describe('thousands_strip', () => {
 
 describe('time_12hour', () => {
   table(time12Hour, [
-    ['14:00', '2:00 PM'],
-    ['23:00', '11:00 PM'],
+    ['08:00', '8 AM'], // on the hour → no ":00" (expert format)
+    ['14:00', '2 PM'],
+    ['23:00', '11 PM'],
+    ['13:30', '1:30 PM'], // non-zero minutes kept
     ['00:00', 'midnight'],
+    ['24:00', 'midnight'],
     ['12:00', 'noon'],
     ['00:30', '12:30 AM'],
-    ['09:30', null], // ambiguous (no AM/PM); hour 1-11 left alone
+    ['09:30', '9:30 AM'], // leading-zero hour is unambiguously 24-hour
+    ['9:00', null], // bare single-digit hour reads as 12-hour → left alone
   ]);
 });
 
