@@ -4,6 +4,7 @@
  */
 import type { RuleHandler, Candidate, RuleContext, Resolution } from '../registry.js';
 import { regexCandidates, textBefore } from '../detect-util.js';
+import type { LlmSpec } from '../../llm/client.js';
 
 /** Insert grouping commas every three digits from the right. */
 function groupThousands(intDigits: string): string {
@@ -115,6 +116,44 @@ export const minusSign: RuleHandler = {
   isAutoApplicable: false,
   detect: (ctx) => regexCandidates(ctx.text, /(?<!\w)-\d+(?:\.\d+)?/),
   resolve: (c): Resolution => ({ kind: 'edit', proposed: `−${c.matched.slice(1)}` }),
+};
+
+/**
+ * numeral_conversion — a spelled-out cardinal number should usually be a numeral in JMIR reporting
+ * (curation note 9 / UAT gap: "five" → "5"), BUT numbers that begin a sentence, or read as an idiom
+ * ("one of the", "two-thirds"), are kept as words. Detection is deterministic (the number words);
+ * the keep-or-convert decision is context-sensitive, so `resolve()` defers to the reasoning tier
+ * (Phase D). Hybrid rule (AGENT-ARCHITECTURE §7). Posts pending via the LLM.
+ */
+const NUMBER_WORDS =
+  'zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve';
+
+const NUMERAL_SYSTEM =
+  'You enforce JMIR number style. In scientific reporting a quantity is written as a numeral (e.g. ' +
+  '"5"), EXCEPT a number that begins a sentence or reads as a non-quantitative idiom ("one of the", ' +
+  '"two-thirds"), which stays spelled out. Given a spelled-out number and its context, decide. Reply ' +
+  'with ONLY a JSON object: {"action":"edit","proposed":"<the numeral>","confidence":<0-1>} to ' +
+  'convert, or {"action":"noop"} to keep it spelled.';
+
+function buildNumeralSpec(c: Candidate, ctx: RuleContext): LlmSpec {
+  const cps = [...ctx.text];
+  const pre = cps.slice(Math.max(0, c.span.start - 60), c.span.start).join('');
+  const post = cps.slice(c.span.end, c.span.end + 60).join('');
+  return {
+    system: NUMERAL_SYSTEM,
+    prompt: `Word: "${c.matched}"\nContext: "…${pre}[${c.matched}]${post}…"\nShould "${c.matched}" be a numeral here?`,
+    maxOutputTokens: 64,
+    temperature: 0,
+  };
+}
+
+export const numeralConversion: RuleHandler = {
+  ruleId: 'numeral_conversion',
+  scope: 'span',
+  isDeterministic: false,
+  isAutoApplicable: false,
+  detect: (ctx) => regexCandidates(ctx.text, new RegExp(`\\b(?:${NUMBER_WORDS})\\b`, 'i')),
+  resolve: (c, ctx): Resolution => ({ kind: 'llm', promptSpec: buildNumeralSpec(c, ctx) }),
 };
 
 /**

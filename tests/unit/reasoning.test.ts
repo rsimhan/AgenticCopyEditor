@@ -6,6 +6,7 @@ import {
 } from '../../src/llm/reasoning.js';
 import type { LlmClient, LlmResult } from '../../src/llm/client.js';
 import { negativeRangeTo } from '../../src/rules/handlers/ranges.js';
+import { numeralConversion } from '../../src/rules/handlers/numbers.js';
 
 /** A stub reasoning client that returns a canned reply — no network (AGENT-ARCH §10). */
 function stub(reply: string, onCall?: () => void): LlmClient {
@@ -92,5 +93,38 @@ describe('reasoning tier — resolveChunkAmbiguities (Phase D)', () => {
     );
     expect(calls).toBe(1);
     expect(drafts).toHaveLength(0);
+  });
+});
+
+describe('reasoning tier — numeral_conversion', () => {
+  it('converts a spelled number when the model says edit', async () => {
+    const client = stub('{"action":"edit","proposed":"5","confidence":0.95}');
+    const { drafts } = await resolveChunkAmbiguities(
+      { chunkId: 1, text: 'There were five patients.' },
+      [numeralConversion],
+      client,
+      makeBudget(10),
+    );
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]!.originalText).toBe('five');
+    expect(drafts[0]!.proposedText).toBe('5');
+  });
+
+  it('keeps a sentence-initial number when the model says noop', async () => {
+    const client = stub('{"action":"noop"}');
+    const { drafts } = await resolveChunkAmbiguities(
+      { chunkId: 1, text: 'Five patients enrolled.' },
+      [numeralConversion],
+      client,
+      makeBudget(10),
+    );
+    expect(drafts).toHaveLength(0);
+  });
+
+  it('detects number words but not substrings', () => {
+    const det = (t: string) =>
+      numeralConversion.detect({ chunkId: 1, text: t }).map((c) => c.matched);
+    expect(det('two and three')).toEqual(['two', 'three']);
+    expect(det('a twofold increase')).toEqual([]); // substring, not a standalone word
   });
 });

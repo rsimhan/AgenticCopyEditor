@@ -12,6 +12,7 @@ import {
   noLeadingZeroStats,
   currencyUsFormat,
   minusSign,
+  numeralConversion,
 } from './numbers.js';
 import { percentNoSpace, percentRepeatRange } from './percent.js';
 import { noSpaceOperators, gteLteSymbols } from './operators.js';
@@ -57,6 +58,7 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   termToward,
   termXhealth,
   negativeRangeTo,
+  numeralConversion,
 ]);
 
 /** Build a RuleRegistry populated with the span handlers. */
