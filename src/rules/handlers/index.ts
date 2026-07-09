@@ -19,6 +19,7 @@ import { temperatureCelsiusSpacing, timeUnitFormat } from './units.js';
 import { time12Hour } from './time.js';
 import { dateFormatUs } from './dates.js';
 import { pValueReporting, testNameFormat } from './stats.js';
+import { negativeRangeTo } from './ranges.js';
 import {
   trademarkSymbolRemoval,
   latinAbbrevComma,
@@ -55,6 +56,7 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   ellipsisThreePeriods,
   termToward,
   termXhealth,
+  negativeRangeTo,
 ]);
 
 /** Build a RuleRegistry populated with the span handlers. */

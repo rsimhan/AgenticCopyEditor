@@ -7,6 +7,10 @@ import { getPool } from '../db/pool.js';
 import { PgLedgerRepo } from '../db/ledger-repo.js';
 import { runFormatEngine } from '../engine/format-engine.js';
 import { spanRuleHandlers } from '../rules/handlers/index.js';
+import { loadConfig } from '../config/index.js';
+import { makeLlmClient, hasLlm } from '../llm/make-client.js';
+import { resolveChunkAmbiguities, makeBudget } from '../llm/reasoning.js';
+import type { LlmClient } from '../llm/client.js';
 import { runDerivedChecks, runCrossLocation } from '../pipeline/reconcile.js';
 import {
   tableRangeStyleConsistency,
@@ -216,6 +220,40 @@ export async function runConsistency(
   return n;
 }
 
+// ---------- Phase D: reasoning tier (thin LLM ambiguity resolver) ----------
+
+/**
+ * Resolve the LLM-deferred candidates over the body prose (AGENT-ARCHITECTURE §5.4 Phase D).
+ * Guarded: with no provider configured it is a no-op, so the pipeline stays deterministic-only
+ * until an API key is set. Tests inject a stub `client`. Budget-limited per manuscript (§10).
+ */
+export async function resolveAmbiguous(
+  manuscriptId: string,
+  client?: LlmClient,
+): Promise<{ calls: number; posted: number }> {
+  const cfg = loadConfig();
+  if (!client && !hasLlm(cfg)) return { calls: 0, posted: 0 };
+  const llm = client ?? makeLlmClient(cfg);
+  const budget = makeBudget(cfg.LLM_CALL_BUDGET_PER_MANUSCRIPT);
+
+  let calls = 0;
+  let posted = 0;
+  for (const u of await loadProse(manuscriptId)) {
+    const out = await resolveChunkAmbiguities(
+      { chunkId: u.chunkId, text: u.text },
+      spanRuleHandlers,
+      llm,
+      budget,
+    );
+    calls += out.calls;
+    for (const d of out.drafts) {
+      await ledger.postSuggestion(d, 'pending');
+      posted += 1;
+    }
+  }
+  return { calls, posted };
+}
+
 // ---------- Phase E: merge ----------
 
 export async function mergeAll(manuscriptId: string): Promise<void> {
@@ -231,6 +269,8 @@ export interface PipelineSummary {
   deterministic: number;
   reconciliation: number;
   consistency: number;
+  /** Reasoning-tier suggestions posted (0 when no LLM provider is configured). */
+  reasoning: number;
 }
 
 export async function runFullPipeline(manuscriptId: string): Promise<PipelineSummary> {
@@ -238,10 +278,12 @@ export async function runFullPipeline(manuscriptId: string): Promise<PipelineSum
   const stats = await extractAndPersist(manuscriptId);
   const reconciliation = await reconcile(manuscriptId, stats);
   const consistency = await runConsistency(manuscriptId, stats);
+  // Phase D before merge, so arbitration can split reasoning vs deterministic overlaps by tier.
+  const reasoning = (await resolveAmbiguous(manuscriptId)).posted;
   await mergeAll(manuscriptId);
   await getPool().query(
     `UPDATE manuscripts SET status='review', updated_at=now() WHERE manuscript_id=$1`,
     [manuscriptId],
   );
-  return { deterministic, reconciliation, consistency };
+  return { deterministic, reconciliation, consistency, reasoning };
 }

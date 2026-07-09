@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   const summary = await runFullPipeline(manuscriptId);
   console.error(
     `Posted: ${summary.deterministic} deterministic · ${summary.reconciliation} reconciliation · ` +
-      `${summary.consistency} consistency\n`,
+      `${summary.consistency} consistency · ${summary.reasoning} reasoning\n`,
   );
 
   const report = await getManuscriptReport(manuscriptId);

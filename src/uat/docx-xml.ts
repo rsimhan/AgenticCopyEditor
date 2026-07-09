@@ -1,16 +1,14 @@
 /**
- * Read word/document.xml out of a .docx (a zip) for tracked-change parsing. Uses the system `unzip`
- * (present on macOS/Linux); this is dev/UAT tooling, not part of the production runtime.
+ * Read word/document.xml out of a .docx (a zip) for tracked-change parsing. Uses jszip so it works
+ * on every platform (the previous `unzip` shell-out was Unix-only). Dev/UAT tooling, not part of the
+ * production runtime.
  */
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execFileP = promisify(execFile);
+import { readFile } from 'node:fs/promises';
+import JSZip from 'jszip';
 
 export async function readDocumentXml(docxPath: string): Promise<string> {
-  const { stdout } = await execFileP('unzip', ['-p', docxPath, 'word/document.xml'], {
-    maxBuffer: 64 * 1024 * 1024,
-    encoding: 'utf8',
-  });
-  return stdout;
+  const zip = await JSZip.loadAsync(await readFile(docxPath));
+  const entry = zip.file('word/document.xml');
+  if (!entry) throw new Error(`word/document.xml not found in ${docxPath}`);
+  return entry.async('string');
 }
