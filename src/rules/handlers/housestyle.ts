@@ -38,6 +38,23 @@ export const latinAbbrevComma: RuleHandler = {
 };
 
 /**
+ * abbrev_no_dots — drop the periods from abbreviations JMIR sets closed-up (et al., Inc., Corp.,
+ * etc., vs., U.S., U.S.A., U.K. → et al, Inc, Corp, etc, vs, US, USA, UK). ie/eg are intentionally
+ * left to `latin_abbrev_comma` (which also adds the comma). NOT auto-applicable: a trailing "et al."
+ * or "etc." can double as the sentence-final period, so a human confirms. (House-rules curation
+ * 2026-07-03, note 19.)
+ */
+export const abbrevNoDots: RuleHandler = {
+  ruleId: 'abbrev_no_dots',
+  scope: 'span',
+  isDeterministic: true,
+  isAutoApplicable: false,
+  detect: (ctx) =>
+    regexCandidates(ctx.text, /\bet al\.|\b(?:Inc|Corp|etc|vs)\.|\bU\.S\.A\.|\bU\.S\.|\bU\.K\./),
+  resolve: (c): Resolution => ({ kind: 'edit', proposed: c.matched.replace(/\./g, '') }),
+};
+
+/**
  * ellipsis_three_periods — replace the Word ellipsis character with three periods. Auto.
  */
 export const ellipsisThreePeriods: RuleHandler = {

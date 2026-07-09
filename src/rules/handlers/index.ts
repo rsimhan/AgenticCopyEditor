@@ -11,14 +11,17 @@ import {
   leadingZero,
   noLeadingZeroStats,
   currencyUsFormat,
+  minusSign,
 } from './numbers.js';
 import { percentNoSpace, percentRepeatRange } from './percent.js';
 import { noSpaceOperators, gteLteSymbols } from './operators.js';
 import { temperatureCelsiusSpacing } from './units.js';
 import { time12Hour } from './time.js';
+import { dateFormatUs } from './dates.js';
 import {
   trademarkSymbolRemoval,
   latinAbbrevComma,
+  abbrevNoDots,
   ellipsisThreePeriods,
   termToward,
   termXhealth,
@@ -38,8 +41,11 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   gteLteSymbols,
   temperatureCelsiusSpacing,
   time12Hour,
+  minusSign,
+  dateFormatUs,
   trademarkSymbolRemoval,
   latinAbbrevComma,
+  abbrevNoDots,
   ellipsisThreePeriods,
   termToward,
   termXhealth,

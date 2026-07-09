@@ -101,6 +101,22 @@ export const noLeadingZeroStats: RuleHandler = {
 };
 
 /**
+ * minus_sign — use a true minus sign (−, U+2212) instead of a hyphen-minus for negative values.
+ * Conservative + deterministic: only a hyphen that is preceded by an operator / opening bracket /
+ * comma (optionally one space) AND followed by a digit — i.e. an unambiguous negative like `= −0.23`
+ * or `(−3.4, 1.1)`. Range hyphens (`3-5`, a digit on the left) are left to `negative_range_to`, and
+ * broader prose negatives are reasoning-tier. Posts pending. (House-rules curation, note 20.)
+ */
+export const minusSign: RuleHandler = {
+  ruleId: 'minus_sign',
+  scope: 'span',
+  isDeterministic: true,
+  isAutoApplicable: false,
+  detect: (ctx) => regexCandidates(ctx.text, /(?<=[=<>≤≥([,]\s?)-(?=\d)/),
+  resolve: (): Resolution => ({ kind: 'edit', proposed: '−' }),
+};
+
+/**
  * currency_us_format — space between a country abbreviation and the currency symbol (US$99 → US $99).
  * Posts pending (spacing near currency can be sensitive). Trailing-zero stripping is a separate case.
  */
