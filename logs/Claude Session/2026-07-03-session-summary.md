@@ -322,3 +322,57 @@ yet change any rule.
 **Revised NEXT:** (B) wire "Adjust this rule" (admin/curation) — the reject→note→train loop's last
 mile; then unchanged: React/Vite front-end, `numeral_conversion` (M7 reasoning tier), docx
 conversion cleanup, and finish isolating integration tests from the dev DB (#6).
+
+### UPDATE 4 — Codified the expert's house-style ruleset (curation → 9 rules live)
+The senior copy editor entered **19 `@agent` rule-feedback notes** in the console (on manuscript
+`89166-1430822-1-ED.docx`, id `6202338e`). We ran the curation gate on them.
+
+**Curation artifact:** `docs/HOUSE-RULES-CURATION-2026-07-03.md` maps each of the 19 notes →
+rule_id → type (deterministic / reasoning / out-of-v1) → action, preserving her worked examples
+(notes 8, 9) as few-shot. Her source doc is now tracked at
+`userinputfiles/Rules to codify.docx` (commit `0256e96`).
+
+**Registry encoding (migration 0014):** all confirmed rules written to `style_rules` — the ones with
+handlers ACTIVE, the rest recorded INACTIVE (handler/LLM-tier pending) so nothing is lost. Note 17
+(spelling/US-spelling/grammar/punctuation) deliberately EXCLUDED — semantic prose, out of v1.
+
+**Confirmed decisions (from her):** ranges = hyphen for positive, "to" for negative
+(`negative_range_to` stays); italics = emit **Markdown** `*P*` (and the console now renders `*…*` as
+real `<em>`); US date = `March 3, 2026` (notes 22 + 23/24 merged); affixes (18) stay reasoning-tier
+(no exception list yet). P-value `.045–.049` → keep 3 dp (verified live on `P=.045`).
+
+**9 of 19 rules now LIVE (all deterministic, post-pending; hits on her paper):**
+| rule_id | note | migration | notes |
+|---|---|---|---|
+| `abbrev_no_dots` | 19 | 0014 | et al./Inc./U.S. → no dots (1×) |
+| `minus_sign` | 20 | 0014 | hyphen → − in negative context (10×) |
+| `date_format_us` | 22–24 | 0014 | textual + ISO → "Month D, YYYY" |
+| `time_12hour` | 7 | (refined) | 08:00→8 AM, 24:00→midnight, drop :00 on the hour (2×) |
+| `p_value_reporting` | 13 | 0015 (→deterministic) | italic *P* + rounding + .045–.049 band + P=0/1 bounds (51×) |
+| `range_hyphen` | 10 | 0016 | en/em/spaced dash → tight hyphen, body only (2×) |
+| `test_name_format` | 14 | 0017 (→deterministic) | italicize W/F/t/z/χ in stat context (16×) |
+| `time_unit_format` | 25 | 0018 (activated) | (30 minutes)→(30 min) inside parens (0× here) |
+| `no_leading_zero_stats` | 15 | (pre-existing) | P/α/β leading-zero strip |
+
+New handler files: `src/rules/handlers/stats.ts` (p_value_reporting, test_name_format) and
+`dates.ts` (date_format_us). Console: `fmt()` in `web/index.html` renders markdown italics.
+Test helper: `applied()` in `tests/unit/house-rules.test.ts` (splices an edit → full string).
+**Migrations now 0001–0018. Tests: 221 unit + 52 integration green; typecheck clean.** All committed
++ pushed (2b842ee, 4dcca6c, 928d5bd, c3e87cf, b175209, 63a40da).
+
+**How her manuscript got the new rules WITHOUT losing her notes:** re-ran **`runDeterministicFixes`
+(Phase C only)** on id `6202338e`, NOT `runFullPipeline` (which re-INSERTs `extracted_statistics`
+without ON CONFLICT and re-runs merge). Phase C is idempotent (post_suggestion ON CONFLICT DO
+NOTHING). ⚠️ Consequence: a REFINED rule's new output does NOT overwrite an existing suggestion at
+the same span (dedupe) — the new format only applies to newly-detected spans. To fully re-format
+existing suggestions you'd delete that rule's rows first (safe: doesn't touch notes), then re-run.
+
+**NEXT (rule frontier):**
+1. `n_percent_together` (9) — last tractable deterministic-ish rule; scope the safe part (n (%)
+   spacing) and flag the rest.
+2. `us_quote_style` (21) — needs apostrophe-vs-quote disambiguation (her input).
+3. **LLM/reasoning tier (Phase D / M7)** — the real unlock for `count_denominator_context` (8),
+   `dash_usage` (16), `affix_closed_up` (18). Foundational, not a quick rule.
+4. Deferred: abbreviation tracker (11), eponym_removal (12). Out of v1: spelling/grammar (17).
+5. Per-rule auto-apply graduation (§8.1) once accuracy is proven on her gold edits; and #6 (isolate
+   integration tests — the `sample` E2E artifact still re-pollutes the picker each test run).
