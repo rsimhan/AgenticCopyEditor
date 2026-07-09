@@ -376,3 +376,51 @@ existing suggestions you'd delete that rule's rows first (safe: doesn't touch no
 4. Deferred: abbreviation tracker (11), eponym_removal (12). Out of v1: spelling/grammar (17).
 5. Per-rule auto-apply graduation (§8.1) once accuracy is proven on her gold edits; and #6 (isolate
    integration tests — the `sample` E2E artifact still re-pollutes the picker each test run).
+
+### UPDATE 5 — LLM reasoning tier (Phase D / M7) wired + first real UAT run (HEAD `0c40161`)
+**Phase D is built, guarded, and green** (deterministic-first preserved). New files:
+- `src/llm/reasoning.ts` — pure Phase-D engine (mirrors `format-engine.ts`): resolves the rule
+  candidates whose `resolve()` returned `kind:'llm'`, calls an injected `LlmClient`, validates a
+  small JSON decision (`{action:'edit'|'noop'|'author_query', proposed?, message?, confidence?}`)
+  with zod at the seam (bad/hallucinated reply → skip, never a bad edit), budget-limited per
+  manuscript, posts `base_inference` drafts. `parseDecision` tolerates code fences/prose.
+- `src/llm/anthropic.ts` — real `AnthropicLlmClient` over the Messages API via **global fetch (no
+  SDK)**; model id echoed on every result; **few-shot pairs replayed as prior user/assistant turns**
+  (this is where her edited-doc examples plug in — verified-memory hook).
+- `src/llm/make-client.ts` — `makeLlmClient(config)` + `hasLlm(config)` guard.
+- `src/rules/handlers/ranges.ts` — `negative_range_to` (the canonical hybrid: deterministic detect
+  of a negative range, LLM decides range vs subtraction). Seed row already `is_deterministic=false`
+  → no migration.
+- `src/service/run.ts` — `resolveAmbiguous(manuscriptId, client?)` wired as Phase D **before merge**;
+  **no-op when `hasLlm` is false**, so with a blank `ANTHROPIC_API_KEY` the pipeline stays
+  deterministic-only. Tests inject a stub client (`tests/unit/reasoning.test.ts`); no live calls (§10).
+`PipelineSummary` + the CLI report gained a `reasoning` count. **227 unit + 53 integration green;
+typecheck clean. Migrations unchanged (0001–0018).** To go live: set `ANTHROPIC_API_KEY` in `.env`
+(LLM_MODEL defaults to `claude-opus-4-8`).
+
+**UAT now runs on Windows.** `src/uat/docx-xml.ts` read `word/document.xml` via a Unix-only `unzip`
+shell-out → replaced with **`jszip`** (added as a dep). The gold-set pair is now present (gitignored):
+`tests/uat/input/89166-1430822-1-ED.docx` (original) + `tests/uat/edited/89166_edited.docx` (her
+tracked changes). Also `tests/uat/input/95374-KDMS-1--Manuscript.docx` (different paper, no edited
+pair yet). (Heads-up: a Word lock file `userinputfiles/~$...docx` appears while the doc is open —
+not committed; consider gitignoring `~$*`.)
+
+**First real UAT scorecard (`pnpm ace uat` on the 89166 pair): 745 gold in-scope edits vs 392 ours.**
+- COVERED: leading_zero (over-fires: 237 ours vs 37 gold), operator_spacing (4/29 — under-covers),
+  time_12hour (2/2), temperature (1/1), latin_abbrev (1/1).
+- GAPS: `other_numeric` 645 — **dominated by ORCID→URL** (`0000-…` → `http://orcid.org/…`), a noisy
+  metadata bucket, largely out of scope; `numeral_conversion` 18 (`five→5`, `two→2`) — **prime first
+  LIVE reasoning rule**; `minus_sign` 10 — she converts **standalone** negatives (`-0.821→−0.821`)
+  but our rule only fires operator/bracket-adjacent → **too narrow, widen it**.
+- PARTIAL: `negative_range_to` 2 (needs the LLM tier + a key).
+- OURS-ONLY (we flag, she didn't touch here): range_hyphen 66, p_value_reporting 51 (likely
+  already-formatted / italics not captured as text edits), test_name_format 16 — review for
+  over-firing vs already-correct.
+
+**NEXT (post-tier):**
+1. Widen `minus_sign` to catch standalone negatives (quick deterministic; closes a UAT gap).
+2. Add `numeral_conversion` as a hybrid reasoning rule (runs live once a key is set) — biggest gap.
+3. Set `ANTHROPIC_API_KEY` → drive `negative_range_to` / `numeral_conversion` live; feed her edited
+   doc's tracked changes in as curated **few-shot** (verified memory) for the reasoning tier.
+4. Investigate the ours-only over-firing (leading_zero 237, range_hyphen 66) and section-scope the
+   GOLD side (the ORCID `other_numeric` noise is mostly front/back-matter).
