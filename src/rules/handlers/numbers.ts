@@ -101,19 +101,20 @@ export const noLeadingZeroStats: RuleHandler = {
 };
 
 /**
- * minus_sign — use a true minus sign (−, U+2212) instead of a hyphen-minus for negative values.
- * Conservative + deterministic: only a hyphen that is preceded by an operator / opening bracket /
- * comma (optionally one space) AND followed by a digit — i.e. an unambiguous negative like `= −0.23`
- * or `(−3.4, 1.1)`. Range hyphens (`3-5`, a digit on the left) are left to `negative_range_to`, and
- * broader prose negatives are reasoning-tier. Posts pending. (House-rules curation, note 20.)
+ * minus_sign — use a true minus sign (−, U+2212) instead of a hyphen-minus for a negative value.
+ * Fires on a hyphen that (a) is followed by a digit and (b) is NOT preceded by a word char
+ * (letter/digit/underscore). That catches a standalone negative — at the start of a cell, after a
+ * space, or after an operator/bracket (`-0.821`, `= −0.23`, `(−3.4, 1.1)`) — which the expert
+ * converts throughout (UAT note 20). It still skips range hyphens (`3-5`, digit on the left),
+ * compounds (`5-year`), and words (`COVID-19`), where a letter/digit precedes the hyphen. Pending.
  */
 export const minusSign: RuleHandler = {
   ruleId: 'minus_sign',
   scope: 'span',
   isDeterministic: true,
   isAutoApplicable: false,
-  detect: (ctx) => regexCandidates(ctx.text, /(?<=[=<>≤≥([,]\s?)-(?=\d)/),
-  resolve: (): Resolution => ({ kind: 'edit', proposed: '−' }),
+  detect: (ctx) => regexCandidates(ctx.text, /(?<!\w)-\d+(?:\.\d+)?/),
+  resolve: (c): Resolution => ({ kind: 'edit', proposed: `−${c.matched.slice(1)}` }),
 };
 
 /**

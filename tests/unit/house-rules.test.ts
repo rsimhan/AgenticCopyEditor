@@ -61,13 +61,17 @@ describe('abbrev_no_dots (note 19)', () => {
 
 describe('minus_sign (note 20)', () => {
   table(minusSign, [
-    ['β = -0.23', '−'],
-    ['a value of (-3.4, 1.1)', '−'],
-    ['scores < -2 overall', '−'],
-    ['CI [-7, 7]', '−'],
-    ['dropped by , -1.2 units', '−'],
+    ['β = -0.23', '−0.23'], // whole negative number gets the minus sign
+    ['a value of (-3.4, 1.1)', '−3.4'],
+    ['scores < -2 overall', '−2'],
+    ['CI [-7, 7]', '−7'], // trailing comma not captured
+    ['dropped by , -1.2 units', '−1.2'],
+    ['-0.821', '−0.821'], // standalone negative (e.g. a table cell) — the UAT gap
+    ['coefficient -1.000 overall', '−1.000'], // standalone after a space
     ['a score of 3-5 points', null], // range hyphen (digit on the left)
+    ['a 5-year follow-up', null], // compound, digit on the left
     ['well-being improved', null], // word hyphen
+    ['COVID-19 cases', null], // letter on the left
     ['line - dash', null], // hyphen not before a digit
   ]);
 });

@@ -30,6 +30,8 @@ export function patternOfGold(e: TrackedEdit): string {
   if (/^\d[\d.]*\s+%$/.test(d) && /%$/.test(i)) return 'percent_spacing';
   if (d === '–' && /\bto\b/.test(i)) return 'negative_range_to';
   if (/^-\d/.test(d) && /^[−–]\d/.test(i)) return 'minus_sign';
+  if (/^\d[\d.,]*\s*[–—]\s*\d/.test(d) && /^\d[\d.,]*-\d/.test(i)) return 'range_hyphen';
+  if (/\b(?:et al|Inc|Corp|etc|vs)\.|U\.[SK]\./.test(d)) return 'abbrev_no_dots';
   if (/°[CF]/.test(t)) return 'temperature';
   if (/^0?\.\d/.test(d) || /^\.\d/.test(i)) return 'leading_zero';
   if (/[=<>≤≥]/.test(t)) return 'operator_spacing';
@@ -54,8 +56,15 @@ const RULE_TO_PATTERN: Record<string, string> = {
   no_space_operators: 'operator_spacing',
   gte_lte_symbols: 'operator_spacing',
   temperature_celsius_spacing: 'temperature',
+  time_unit_format: 'time_unit',
   currency_us_format: 'currency',
   negative_range_to: 'negative_range_to',
+  minus_sign: 'minus_sign',
+  range_hyphen: 'range_hyphen',
+  abbrev_no_dots: 'abbrev_no_dots',
+  date_format_us: 'date_format',
+  p_value_reporting: 'p_value',
+  test_name_format: 'stat_italics',
   derived_value_check: 'derived_value',
   cross_reference_mismatch: 'cross_reference',
   decimal_places_consistency: 'decimal_consistency',
