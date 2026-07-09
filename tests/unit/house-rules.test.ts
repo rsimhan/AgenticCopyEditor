@@ -3,6 +3,7 @@ import type { RuleHandler, Resolution } from '../../src/rules/registry.js';
 import { minusSign } from '../../src/rules/handlers/numbers.js';
 import { abbrevNoDots } from '../../src/rules/handlers/housestyle.js';
 import { dateFormatUs } from '../../src/rules/handlers/dates.js';
+import { pValueReporting } from '../../src/rules/handlers/stats.js';
 import { sliceByCodepoint } from '../../src/util/offsets.js';
 
 /** Run a handler over `text`; assert each candidate span round-trips (Principle 8). */
@@ -73,5 +74,24 @@ describe('date_format_us (notes 22 + 23/24)', () => {
     ['collected in 7/3/2026', null], // numeric slash date: ambiguous, deferred
     ['spanning 2020-2024', null], // year range, not an ISO date
     ['no date here', null],
+  ]);
+});
+
+describe('p_value_reporting (note 13)', () => {
+  table(pValueReporting, [
+    ['P = .034', '*P*=.03'], // italic + round to 2 dp + no space
+    ['P=0.034', '*P*=.03'], // strip leading zero + round
+    ['P=.0234', '*P*=.02'],
+    ['P=.047', '*P*=.047'], // .045–.049 band keeps 3 dp
+    ['P=.045', '*P*=.045'], // band lower edge
+    ['P=.05', '*P*=.05'], // boundary, not in band
+    ['P=.5', '*P*=.50'], // 2 dp
+    ['P=.0006', '*P*<.001'], // = value below .001 → bound
+    ['P=0', '*P*<.001'],
+    ['P=1', '*P*>.99'],
+    ['P<.001', '*P*<.001'], // threshold kept, just italicized
+    ['P<.05', '*P*<.05'],
+    ['P>.99', '*P*>.99'],
+    ['the SNP was significant', null], // no operator+value → not a P value
   ]);
 });
