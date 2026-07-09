@@ -424,3 +424,54 @@ not committed; consider gitignoring `~$*`.)
    doc's tracked changes in as curated **few-shot** (verified memory) for the reasoning tier.
 4. Investigate the ours-only over-firing (leading_zero 237, range_hyphen 66) and section-scope the
    GOLD side (the ORCID `other_numeric` noise is mostly front/back-matter).
+
+### UPDATE 6 — minus_sign widened, UAT taxonomy fixed, numeral_conversion added (HEAD `6da89b7`)
+Worked the post-tier NEXT list.
+
+**`minus_sign` widened (commit `c91c4cc`).** Was operator/bracket-adjacent only; now fires on a
+hyphen before a digit whose preceding char is NOT a word char, and spans the WHOLE negative number
+(`-0.821 → −0.821`) — catching the standalone negatives the expert converts throughout (table
+cells, after a space). Still skips range hyphens (`3-5`), compounds (`5-year`), words (`COVID-19`).
+UAT: 10 → 65 minus suggestions.
+
+**UAT taxonomy was stale — fixed (same commit).** `src/uat/compare.ts` matches by *pattern name*;
+`RULE_TO_PATTERN` + `patternOfGold` predated this session's rules, so `minus_sign`/`range_hyphen`/
+`p_value_reporting`/`test_name_format`/etc. fell to `?<rule>` and never matched their gold patterns —
+FALSELY inflating gaps + ours-only. Mapped the new rules; added gold classifiers for `minus_sign`
+(now ✅ covered 10/65), `range_hyphen`, `abbrev_no_dots`. **Lesson: keep the UAT taxonomy in sync
+when adding rules, or the scorecard lies.**
+
+**`numeral_conversion` added — 2nd hybrid reasoning rule (commit `6da89b7`, migration 0019).**
+Deterministic detect of spelled cardinals (one..twelve); the keep-or-convert call is context-
+sensitive (sentence-initial/idiomatic stay spelled) → routes to Phase D (`is_deterministic=false`).
+Closes the biggest true UAT gap (`five→5`, 18 gold). Stub-tested; runs live once a key is set.
+
+**Domain calibration from the expert (important for reading the scorecard):** hyphen-for-ranges and
+P *italics* are MOSTLY ALREADY PRESENT in the input doc — only the *missing* ones need capturing.
+Our rules already behave this way: `range_hyphen` fires only on en-dash (not existing hyphens),
+`p_value_reporting`/`test_name_format` fire only on non-italic P/stat letters. So the high ours-only
+counts (range_hyphen 66, p_value 51, stat_italics 16) are the *missing* conversions, not errors.
+BUT **rounding + no-leading-zero must be applied in the edited doc** — those are the real per-value
+edits (`leading_zero` already scores covered). ⚠️ **Robustness gap flagged:** p_value_reporting's
+regex skips an ALREADY-italic `*P*`, so a pre-italic-but-unrounded `*P*=.100` would miss rounding —
+refine to allow optional `*` around P and always emit `*P*<rounded>` (this input's P's are plain, so
+rounding IS applying now; matters for typeset docs).
+
+**Current UAT scorecard (89166 pair): 745 gold vs 447 ours.** ✅ minus_sign (10/65), leading_zero
+(37/237, over-fires), operator_spacing (4/29), time_12hour (2/2), temperature, latin_abbrev. ✗ GAP:
+`numeral_conversion` 18 (built, needs key), `other_numeric` 645 (mostly ORCID→URL noise). ◐
+negative_range_to 2 (needs key). ● ours-only (expected — missing italics/hyphens): range_hyphen 66,
+p_value 51, stat_italics 16.
+
+**State:** migrations **0001–0019**, **234 unit + 54 integration** green, typecheck clean, `main` in
+sync at `6da89b7`. Reasoning tier dormant (no key yet).
+
+**NEXT:**
+1. **Set `ANTHROPIC_API_KEY` in `.env`** (user will do later) → then smoke-test Phase D on
+   `sample-manuscript.md` (cheap), then run `numeral_conversion`/`negative_range_to` live on the real
+   paper (~≤200 calls, the budget cap).
+2. Refine `p_value_reporting` for already-italic `*P*` (apply rounding/no-leading-zero regardless of
+   italics).
+3. Wire her edited-doc tracked changes in as curated **few-shot** (verified memory) for the tier.
+4. Review `range_hyphen` (66) / `leading_zero` (237) ours-only for genuine over-firing; section-scope
+   the GOLD side (ORCID noise is front/back-matter).
