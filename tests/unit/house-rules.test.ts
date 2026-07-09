@@ -3,7 +3,7 @@ import type { RuleHandler, Resolution } from '../../src/rules/registry.js';
 import { minusSign } from '../../src/rules/handlers/numbers.js';
 import { abbrevNoDots, rangeHyphen } from '../../src/rules/handlers/housestyle.js';
 import { dateFormatUs } from '../../src/rules/handlers/dates.js';
-import { pValueReporting } from '../../src/rules/handlers/stats.js';
+import { pValueReporting, testNameFormat } from '../../src/rules/handlers/stats.js';
 import { sliceByCodepoint } from '../../src/util/offsets.js';
 
 /** Run a handler over `text`; assert each candidate span round-trips (Principle 8). */
@@ -105,6 +105,25 @@ describe('p_value_reporting (note 13)', () => {
     ['P>.99', '*P*>.99'],
     ['the SNP was significant', null], // no operator+value → not a P value
   ]);
+});
+
+describe('test_name_format (note 14)', () => {
+  const cases: Array<[string, string]> = [
+    ['t = 2.68', '*t* = 2.68'],
+    ['t(15) = 2.68', '*t*(15) = 2.68'],
+    ['t15 = 2.68', '*t*15 = 2.68'], // bare-digit df
+    ['F(1, 20) = 4.52', '*F*(1, 20) = 4.52'],
+    ['z = 1.96', '*z* = 1.96'],
+    ['W = 210', '*W* = 210'],
+    ['χ2 = 3.84', '*χ*2 = 3.84'],
+    ['the result at t-test', 'the result at t-test'], // prose t / at / t-test: no operator → unchanged
+    ['F test showed', 'F test showed'], // F without operator → unchanged
+  ];
+  for (const [input, out] of cases) {
+    it(`test_name_format: ${JSON.stringify(input)} → ${JSON.stringify(out)}`, () => {
+      expect(applied(testNameFormat, input)).toBe(out);
+    });
+  }
 });
 
 describe('range_hyphen (note 10)', () => {

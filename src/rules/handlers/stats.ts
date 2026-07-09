@@ -23,6 +23,26 @@ function formatP(op: string, numStr: string): string {
 }
 
 /**
+ * test_name_format — italicize test-statistic symbols W, F, t, z, and χ (curation note 14). Only
+ * fires in statistical context: the letter must be followed by an optional df (bare digits or a
+ * `(df)` group) and then an operator (= < >), so a bare "t" in "the"/"at" or an "F" in prose is not
+ * matched. Italicizes just the letter (`t` → `*t*`), leaving df/values untouched. Subscripting the
+ * df (t15 → t_15) is a later enhancement. Deterministic; posts pending.
+ */
+export const testNameFormat: RuleHandler = {
+  ruleId: 'test_name_format',
+  scope: 'span',
+  isDeterministic: true,
+  isAutoApplicable: false,
+  detect: (ctx) =>
+    regexCandidates(
+      ctx.text,
+      /\b[WFtz](?=\s*(?:\d+|\([\d,\s]+\))?\s*[=<>])|χ(?=[²2]?\s*[=<>])/,
+    ),
+  resolve: (c): Resolution => ({ kind: 'edit', proposed: `*${c.matched}*` }),
+};
+
+/**
  * p_value_reporting — the comprehensive P-value formatter. Italicizes P and normalizes the value per
  * house style (see formatP). Deterministic; posts pending. Higher confidence than the generic
  * no_leading_zero_stats so the merge engine prefers this fuller edit when both touch a P value.

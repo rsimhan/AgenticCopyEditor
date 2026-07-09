@@ -495,6 +495,9 @@
         MID = null;
       const esc = (s) =>
         (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Render a suggestion's markdown italics (*P*, *W*) as real italics — copy editors should see
+      // the formatting, not the asterisks. Escape first (XSS-safe), then convert *...* → <em>.
+      const fmt = (s) => esc(s).replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
       const api = (u, o) => fetch(u, o).then((r) => r.json());
 
       async function init() {
@@ -552,7 +555,7 @@
       function changeInline(it) {
         if (it.kind === 'author_query') return `<span class="chg query">${esc(it.original)}</span>`;
         const cls = decided(it) ? 'done' : bucket(it);
-        return `<span class="chg ${cls}"><del>${esc(it.original)}</del><ins>${esc(it.proposed ?? '')}</ins></span>`;
+        return `<span class="chg ${cls}"><del>${fmt(it.original)}</del><ins>${fmt(it.proposed ?? '')}</ins></span>`;
       }
       // Render one chunk's text ONCE, splicing every in-chunk change inline at its span (sorted,
       // non-overlapping). Overlapping/cell changes are skipped here and shown via the queue.
@@ -606,8 +609,8 @@
             const b = bucket(it);
             const ba =
               it.kind === 'author_query'
-                ? `<div class="ba">${esc(it.original)} — flagged</div>`
-                : `<div class="ba"><del>${esc(it.original)}</del> → <ins>${esc(it.proposed ?? '')}</ins></div>`;
+                ? `<div class="ba">${fmt(it.original)} — flagged</div>`
+                : `<div class="ba"><del>${fmt(it.original)}</del> → <ins>${fmt(it.proposed ?? '')}</ins></div>`;
             return `<div class="row ${b} ${it.suggestionId === sel ? 'sel' : ''}" data-id="${it.suggestionId}">
       <div style="display:flex;gap:.4rem;align-items:center">${chip(it)}<span class="rule">${esc(it.ruleId)}</span></div>${ba}
       <div class="acts">
@@ -691,7 +694,7 @@
           `<div class="h"><span class="x" onclick="closePop()">×</span><div class="ey">Why did the agent do this?</div>
     <div class="why">${esc(it.ruleDescription)}</div>${isQ && it.queryMessage ? `<div class="why" style="font-size:.9rem;color:var(--soft)">${esc(it.queryMessage)}</div>` : ''}</div>
     <div class="meta"><span>Rule</span><b>${esc(it.ruleId)}</b>
-      ${!isQ ? `<span>Change</span><b style="font-family:var(--mono)">${esc(it.original)} → ${esc(it.proposed ?? '')}</b>` : ''}
+      ${!isQ ? `<span>Change</span><b style="font-family:var(--mono)">${fmt(it.original)} → ${fmt(it.proposed ?? '')}</b>` : ''}
       <span>Confidence</span><b>${it.confidence != null ? it.confidence : '—'} · ${esc(it.originTier)}</b>
       <span>Status</span><b>${esc(it.status)}</b></div>
     <div class="foot">${foot}</div>`;

@@ -18,7 +18,7 @@ import { noSpaceOperators, gteLteSymbols } from './operators.js';
 import { temperatureCelsiusSpacing } from './units.js';
 import { time12Hour } from './time.js';
 import { dateFormatUs } from './dates.js';
-import { pValueReporting } from './stats.js';
+import { pValueReporting, testNameFormat } from './stats.js';
 import {
   trademarkSymbolRemoval,
   latinAbbrevComma,
@@ -46,6 +46,7 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   minusSign,
   dateFormatUs,
   pValueReporting,
+  testNameFormat,
   trademarkSymbolRemoval,
   latinAbbrevComma,
   abbrevNoDots,
