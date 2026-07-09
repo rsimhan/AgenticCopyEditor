@@ -4,6 +4,7 @@ import { minusSign } from '../../src/rules/handlers/numbers.js';
 import { abbrevNoDots, rangeHyphen } from '../../src/rules/handlers/housestyle.js';
 import { dateFormatUs } from '../../src/rules/handlers/dates.js';
 import { pValueReporting, testNameFormat } from '../../src/rules/handlers/stats.js';
+import { timeUnitFormat } from '../../src/rules/handlers/units.js';
 import { sliceByCodepoint } from '../../src/util/offsets.js';
 
 /** Run a handler over `text`; assert each candidate span round-trips (Principle 8). */
@@ -122,6 +123,23 @@ describe('test_name_format (note 14)', () => {
   for (const [input, out] of cases) {
     it(`test_name_format: ${JSON.stringify(input)} → ${JSON.stringify(out)}`, () => {
       expect(applied(testNameFormat, input)).toBe(out);
+    });
+  }
+});
+
+describe('time_unit_format (note 25)', () => {
+  const cases: Array<[string, string]> = [
+    ['(30 minutes)', '(30 min)'],
+    ['(2 hours)', '(2 h)'],
+    ['(45 seconds)', '(45 s)'],
+    ['(1 hour)', '(1 h)'],
+    ['completed in 30 minutes', 'completed in 30 minutes'], // running text keeps the full word
+    ['(over several hours)', '(over several hours)'], // no number → not a duration
+    ['every 5 hours daily', 'every 5 hours daily'], // prose → unchanged
+  ];
+  for (const [input, out] of cases) {
+    it(`time_unit_format: ${JSON.stringify(input)} → ${JSON.stringify(out)}`, () => {
+      expect(applied(timeUnitFormat, input)).toBe(out);
     });
   }
 });

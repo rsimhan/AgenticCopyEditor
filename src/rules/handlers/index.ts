@@ -15,7 +15,7 @@ import {
 } from './numbers.js';
 import { percentNoSpace, percentRepeatRange } from './percent.js';
 import { noSpaceOperators, gteLteSymbols } from './operators.js';
-import { temperatureCelsiusSpacing } from './units.js';
+import { temperatureCelsiusSpacing, timeUnitFormat } from './units.js';
 import { time12Hour } from './time.js';
 import { dateFormatUs } from './dates.js';
 import { pValueReporting, testNameFormat } from './stats.js';
@@ -42,6 +42,7 @@ export const spanRuleHandlers: readonly RuleHandler[] = Object.freeze([
   noSpaceOperators,
   gteLteSymbols,
   temperatureCelsiusSpacing,
+  timeUnitFormat,
   time12Hour,
   minusSign,
   dateFormatUs,
